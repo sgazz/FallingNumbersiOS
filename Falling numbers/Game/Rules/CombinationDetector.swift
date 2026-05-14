@@ -1,13 +1,13 @@
 import Foundation
 
 struct CombinationDetector {
-    // Line-matching behavior:
-    // valid groups are contiguous horizontal or vertical sequences (length >= 2)
+    // Valid matches are contiguous horizontal or vertical lines (length >= 2)
     // whose sum equals the target.
+    // Detection order is stable: horizontal scan first (top-to-bottom, left-to-right),
+    // then vertical scan (left-to-right, top-to-bottom).
     func findMatchingGroups(on board: Board, target: Int) -> [[GridPosition]] {
         guard target > 0 else { return [] }
         var matches: [[GridPosition]] = []
-        var seen = Set<String>()
 
         for row in 0..<board.rows {
             for startColumn in 0..<board.columns {
@@ -21,10 +21,15 @@ struct CombinationDetector {
                     group.append(position)
 
                     if group.count >= 2, sum == target {
-                        let key = makeKey(group)
-                        if seen.insert(key).inserted {
-                            matches.append(group)
-                        }
+                        let values = group.compactMap { board.cell(at: $0)?.value }
+                        GameDebugLogger.logMatch(
+                            direction: .horizontal,
+                            positions: group,
+                            values: values,
+                            sum: sum,
+                            target: target
+                        )
+                        matches.append(group)
                     }
 
                     if sum >= target { break }
@@ -44,10 +49,15 @@ struct CombinationDetector {
                     group.append(position)
 
                     if group.count >= 2, sum == target {
-                        let key = makeKey(group)
-                        if seen.insert(key).inserted {
-                            matches.append(group)
-                        }
+                        let values = group.compactMap { board.cell(at: $0)?.value }
+                        GameDebugLogger.logMatch(
+                            direction: .vertical,
+                            positions: group,
+                            values: values,
+                            sum: sum,
+                            target: target
+                        )
+                        matches.append(group)
                     }
 
                     if sum >= target { break }
@@ -55,22 +65,6 @@ struct CombinationDetector {
             }
         }
 
-        matches.sort(by: groupLess)
         return matches
-    }
-
-    private func positionLess(_ lhs: GridPosition, _ rhs: GridPosition) -> Bool {
-        if lhs.row != rhs.row { return lhs.row < rhs.row }
-        return lhs.column < rhs.column
-    }
-
-    private func groupLess(_ lhs: [GridPosition], _ rhs: [GridPosition]) -> Bool {
-        let left = makeKey(lhs)
-        let right = makeKey(rhs)
-        return left < right
-    }
-
-    private func makeKey(_ group: [GridPosition]) -> String {
-        group.map { "\($0.row):\($0.column)" }.joined(separator: "|")
     }
 }

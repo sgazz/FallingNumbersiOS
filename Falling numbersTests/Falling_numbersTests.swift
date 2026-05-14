@@ -305,18 +305,18 @@ struct FallingNumbersTests {
         var state = GameState.initial(config: config)
         state.totalClearedTiles = 0
 
-        state.board.setCell(Cell(value: 4), at: GridPosition(row: 3, column: 0))
+        state.board.setCell(Cell(value: 3), at: GridPosition(row: 3, column: 0))
         state.board.setCell(Cell(value: 6), at: GridPosition(row: 3, column: 1))
-        state.board.setCell(Cell(value: 3), at: GridPosition(row: 2, column: 0))
         state.board.setCell(Cell(value: 7), at: GridPosition(row: 2, column: 1))
-        state.activePiece = FallingPiece(value: 1, position: GridPosition(row: 0, column: 2))
+        state.activePiece = FallingPiece(value: 4, position: GridPosition(row: 0, column: 2))
 
         var engine = GameEngine(state: state, config: config)
         engine.send(.hardDrop)
 
         #expect(engine.state.totalClearedTiles >= 4)
         #expect(engine.state.comboCount >= 2)
-        #expect(engine.state.board.cell(at: GridPosition(row: 3, column: 2))?.value == 1)
+        #expect(engine.state.board.cell(at: GridPosition(row: 3, column: 0)) == nil)
+        #expect(engine.state.board.cell(at: GridPosition(row: 3, column: 1)) == nil)
     }
 
     @Test
@@ -659,24 +659,26 @@ struct FallingNumbersTests {
         var state = GameState.initial(config: config)
         state.totalClearedTiles = 0
 
-        // Longer line: row 3 => 2+3+5
-        state.board.setCell(Cell(value: 2), at: GridPosition(row: 3, column: 0))
-        state.board.setCell(Cell(value: 3), at: GridPosition(row: 3, column: 1))
-        state.board.setCell(Cell(value: 5), at: GridPosition(row: 3, column: 2))
-        // Shorter line: row 2 => 4+6
-        state.board.setCell(Cell(value: 4), at: GridPosition(row: 2, column: 0))
-        state.board.setCell(Cell(value: 6), at: GridPosition(row: 2, column: 1))
-        state.activePiece = FallingPiece(value: 1, position: GridPosition(row: 0, column: 3))
+        // Anchor at row2,col1 participates in two possible lines:
+        // longer horizontal: row2 => 2 + 5 + 3
+        // shorter vertical: col1 => 5 + 5
+        state.board.setCell(Cell(value: 5), at: GridPosition(row: 3, column: 1)) // stopper + vertical partner
+        state.board.setCell(Cell(value: 2), at: GridPosition(row: 2, column: 0))
+        state.board.setCell(Cell(value: 3), at: GridPosition(row: 2, column: 2))
+        state.activePiece = FallingPiece(value: 5, position: GridPosition(row: 0, column: 1))
 
         var engine = GameEngine(state: state, config: config)
         engine.send(.hardDrop)
 
-        // Drop score 6 + clears ordered as 3-tile then 2-tile => 70 clear points.
-        #expect(engine.state.score == 76)
+        // Longer horizontal must be selected first, leaving vertical partner intact.
+        #expect(engine.state.board.cell(at: GridPosition(row: 3, column: 1))?.value == 5)
+        #expect(engine.state.board.cell(at: GridPosition(row: 2, column: 0)) == nil)
+        #expect(engine.state.board.cell(at: GridPosition(row: 2, column: 1)) == nil)
+        #expect(engine.state.board.cell(at: GridPosition(row: 2, column: 2)) == nil)
     }
 
     @Test
-    func prefersGroupContainingLockedTileOverLargerUnrelatedGroup() {
+    func prefersLineContainingLockedTileOverLongerUnrelatedLine() {
         let config = GameConfig(columns: 5, rows: 5, tickInterval: 0.65, baseTargetNumber: 10)
         var state = GameState.initial(config: config)
         state.totalClearedTiles = 0
@@ -696,6 +698,56 @@ struct FallingNumbersTests {
         // If locked-tile match is preferred first, unrelated line is broken and cells remain.
         #expect(engine.state.board.cell(at: GridPosition(row: 4, column: 1))?.value == 2)
         #expect(engine.state.board.cell(at: GridPosition(row: 4, column: 2))?.value == 2)
+    }
+
+    @Test
+    func oldValidLineNotIncludingLockedTileDoesNotClear() {
+        let config = GameConfig(columns: 5, rows: 5, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board = Board(rows: config.rows, columns: config.columns)
+
+        // Existing valid line away from the landing spot: 4 + 6 on bottom-left.
+        state.board.setCell(Cell(value: 4), at: GridPosition(row: 4, column: 0))
+        state.board.setCell(Cell(value: 6), at: GridPosition(row: 4, column: 1))
+
+        // Locked tile lands on right side and does not form target line.
+        state.activePiece = FallingPiece(value: 1, position: GridPosition(row: 0, column: 4))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.hardDrop)
+
+        #expect(engine.state.board.cell(at: GridPosition(row: 4, column: 0))?.value == 4)
+        #expect(engine.state.board.cell(at: GridPosition(row: 4, column: 1))?.value == 6)
+    }
+
+    @Test
+    func anchorHorizontalLineClears() {
+        let config = GameConfig(columns: 5, rows: 5, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board = Board(rows: config.rows, columns: config.columns)
+        state.board.setCell(Cell(value: 6), at: GridPosition(row: 4, column: 1))
+        state.activePiece = FallingPiece(value: 4, position: GridPosition(row: 0, column: 2))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.hardDrop)
+
+        #expect(engine.state.board.cell(at: GridPosition(row: 4, column: 1)) == nil)
+        #expect(engine.state.board.cell(at: GridPosition(row: 4, column: 2)) == nil)
+    }
+
+    @Test
+    func anchorVerticalLineClears() {
+        let config = GameConfig(columns: 5, rows: 5, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board = Board(rows: config.rows, columns: config.columns)
+        state.board.setCell(Cell(value: 6), at: GridPosition(row: 4, column: 2))
+        state.activePiece = FallingPiece(value: 4, position: GridPosition(row: 0, column: 2))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.hardDrop)
+
+        #expect(engine.state.board.cell(at: GridPosition(row: 4, column: 2)) == nil)
+        #expect(engine.state.board.cell(at: GridPosition(row: 3, column: 2)) == nil)
     }
 
     @Test
@@ -724,11 +776,10 @@ struct FallingNumbersTests {
         let config = GameConfig(columns: 3, rows: 4, tickInterval: 0.5, baseTargetNumber: 10)
         var state = GameState.initial(config: config)
         state.totalClearedTiles = 0
-        state.board.setCell(Cell(value: 4), at: GridPosition(row: 3, column: 0))
+        state.board.setCell(Cell(value: 3), at: GridPosition(row: 3, column: 0))
         state.board.setCell(Cell(value: 6), at: GridPosition(row: 3, column: 1))
-        state.board.setCell(Cell(value: 3), at: GridPosition(row: 2, column: 0))
         state.board.setCell(Cell(value: 7), at: GridPosition(row: 2, column: 1))
-        state.activePiece = FallingPiece(value: 1, position: GridPosition(row: 0, column: 2))
+        state.activePiece = FallingPiece(value: 4, position: GridPosition(row: 0, column: 2))
 
         var engine = GameEngine(state: state, config: config)
         engine.send(.hardDrop)

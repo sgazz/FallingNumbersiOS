@@ -2,6 +2,12 @@ import SpriteKit
 import UIKit
 
 final class TileNode: SKNode {
+#if DEBUG
+    // Local diagnostics toggle for TileNode label layout.
+    // Keep false by default to avoid noisy logs.
+    private static let enableTileLabelLogs = false
+#endif
+
     private let shadowNode = SKShapeNode()
     private let shapeNode = SKShapeNode()
     private let labelShadowNode = SKLabelNode(fontNamed: "AvenirNext-Bold")
@@ -71,7 +77,7 @@ final class TileNode: SKNode {
         labelShadowNode.fontSize = labelSize
         labelShadowNode.position = CGPoint(x: 0, y: -size * 0.016)
 #if DEBUG
-        if isActive {
+        if Self.enableTileLabelLogs, isActive {
             print("DEBUG tile label: value=\(value) size=\(Int(size)) font=\(Int(labelSize)) pos=(\(Int(labelNode.position.x)),\(Int(labelNode.position.y)))")
         }
 #endif

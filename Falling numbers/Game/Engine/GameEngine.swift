@@ -103,10 +103,25 @@ struct GameEngine {
 
     private mutating func moveActivePiece(columnDelta: Int) {
         guard var piece = state.activePiece else { return }
+        let from = piece.position
         let nextPosition = piece.position.translated(rowDelta: 0, columnDelta: columnDelta)
-        guard state.board.canPlace(at: nextPosition) else { return }
+        guard state.board.canPlace(at: nextPosition) else {
+            GameDebugLogger.logMove(
+                action: columnDelta < 0 ? "move_left" : "move_right",
+                from: from,
+                to: nil,
+                accepted: false
+            )
+            return
+        }
         piece.position = nextPosition
         state.activePiece = piece
+        GameDebugLogger.logMove(
+            action: columnDelta < 0 ? "move_left" : "move_right",
+            from: from,
+            to: nextPosition,
+            accepted: true
+        )
         if isGrounded(piece) {
             startLockDelay(resetToFull: true)
         } else {
@@ -121,10 +136,12 @@ struct GameEngine {
             return
         }
 
+        let from = piece.position
         let nextPosition = piece.position.translated(rowDelta: 1, columnDelta: 0)
         if state.board.canPlace(at: nextPosition) {
             piece.position = nextPosition
             state.activePiece = piece
+            GameDebugLogger.logMove(action: "move_down", from: from, to: nextPosition, accepted: true)
             state.score += 1
             if isGrounded(piece) {
                 startLockDelay(resetToFull: true)
@@ -135,6 +152,7 @@ struct GameEngine {
             return
         }
 
+        GameDebugLogger.logMove(action: "move_down", from: from, to: nil, accepted: false)
         startLockDelay(resetToFull: false)
     }
 
@@ -155,6 +173,7 @@ struct GameEngine {
         state.activePiece = piece
         state.score += droppedRows * 2
         state.hasPlayerMoved = true
+        GameDebugLogger.logHardDrop(value: piece.value, finalPosition: piece.position, droppedRows: droppedRows)
 
         cancelLockDelay()
         let lockedPosition = lock(piece)
@@ -196,6 +215,8 @@ struct GameEngine {
 
     private mutating func lock(_ piece: FallingPiece) -> GridPosition {
         state.board.setCell(Cell(value: piece.value), at: piece.position)
+        GameDebugLogger.logLock(value: piece.value, position: piece.position)
+        state.lastLockedPosition = piece.position
         state.activePiece = nil
         return piece.position
     }
@@ -227,28 +248,59 @@ struct GameEngine {
         var originForCurrentPass = preferredOrigin
 
         while true {
+            GameDebugLogger.logBoard(state.board, title: "board before detection")
             let groups = detector.findMatchingGroups(on: state.board, target: state.targetNumber)
             if groups.isEmpty {
+                GameDebugLogger.log("resolve stopped: no matches")
                 break
             }
 
+            let candidateGroups: [[GridPosition]]
+            if combo == 0, let anchor = originForCurrentPass {
+                GameDebugLogger.log("resolve anchor r\(anchor.row)c\(anchor.column)")
+                let containing = groups.filter { $0.contains(anchor) }
+                let rejected = groups.filter { !$0.contains(anchor) }
+                for group in rejected {
+                    let pos = group.map { "r\($0.row)c\($0.column)" }.joined(separator: ",")
+                    GameDebugLogger.log("rejected_non_anchor line=[\(pos)]")
+                }
+                if containing.isEmpty {
+                    GameDebugLogger.log("resolve stopped: no anchor-matching lines")
+                    break
+                }
+                candidateGroups = containing
+            } else {
+                candidateGroups = groups
+            }
+
             combo += 1
-            // Deterministic resolution rule:
-            // the first clear pass prefers groups containing the just-locked tile,
-            // then falls back to largest-group-first with lexicographic tie-breaking.
-            // Chain passes use the regular deterministic largest-group-first behavior.
-            guard let selectedGroup = selectClearGroup(from: groups, preferredOrigin: originForCurrentPass) else { break }
+            // Deterministic line-clear resolution:
+            // first pass prefers lines containing the just-locked tile.
+            // Tie-break remains stable by longer line, then horizontal, then lexicographic key.
+            guard let selectedGroup = selectClearGroup(from: candidateGroups, preferredOrigin: originForCurrentPass) else { break }
             originForCurrentPass = nil
 
+            let scoreBefore = state.score
             for position in selectedGroup {
                 state.board.setCell(nil, at: position)
             }
+            GameDebugLogger.logBoard(state.board, title: "board after clear")
 
             let clearedCount = selectedGroup.count
             state.totalClearedTiles += clearedCount
             state.score += scoreSystem.pointsForClear(tileCount: clearedCount, combo: combo)
 
             gravitySystem.collapse(board: &state.board)
+            GameDebugLogger.logBoard(state.board, title: "board after gravity")
+            let scoreGained = state.score - scoreBefore
+            let stillHasMatches = boardHasAnyLineMatch(target: state.targetNumber)
+            GameDebugLogger.logResolvePass(
+                pass: combo,
+                selected: selectedGroup,
+                scoreGained: scoreGained,
+                combo: combo,
+                continued: stillHasMatches
+            )
         }
 
         state.comboCount = combo
@@ -304,10 +356,14 @@ struct GameEngine {
         let spawnValue = state.nextPieceValue
         guard let piece = spawnSystem.makePiece(on: state.board, value: spawnValue) else {
             state.isGameOver = true
+            let blocked = GridPosition(row: 0, column: state.board.columns / 2)
+            GameDebugLogger.logGameOver(spawnPosition: blocked, board: state.board)
             return
         }
 
         state.activePiece = piece
+        state.lastLockedPosition = nil
+        GameDebugLogger.logPieceSpawn(value: piece.value, position: piece.position)
         cancelLockDelay()
         state.nextPieceValue = spawnSystem.nextValue(level: state.level)
     }
@@ -321,7 +377,7 @@ struct GameEngine {
             [(1, 1, 4), (1, 2, 5), (1, 7, 3), (1, 8, 4), (2, 4, 2), (2, 5, 7)],
             // Sums avoid target=10 (8, 9, 6); keeps gaps and bottom-heavy placement.
             [(1, 0, 3), (1, 1, 5), (1, 8, 5), (1, 9, 4), (2, 4, 2), (2, 6, 4)],
-            // Slightly denser (7 tiles), still avoiding target=10 connected subsets.
+            // Slightly denser (7 tiles), still avoiding immediate target line clears.
             [(1, 1, 1), (1, 2, 8), (1, 6, 2), (1, 7, 7), (2, 4, 3), (2, 5, 5), (2, 8, 1)]
         ]
 
@@ -371,5 +427,41 @@ struct GameEngine {
             }
             .map { "\($0.row):\($0.column)" }
             .joined(separator: "|")
+    }
+
+    private func boardHasAnyLineMatch(target: Int) -> Bool {
+        guard target > 0 else { return false }
+
+        for row in 0..<state.board.rows {
+            for startColumn in 0..<state.board.columns {
+                var sum = 0
+                var length = 0
+                for column in startColumn..<state.board.columns {
+                    let pos = GridPosition(row: row, column: column)
+                    guard let value = state.board.cell(at: pos)?.value else { break }
+                    sum += value
+                    length += 1
+                    if length >= 2, sum == target { return true }
+                    if sum >= target { break }
+                }
+            }
+        }
+
+        for column in 0..<state.board.columns {
+            for startRow in 0..<state.board.rows {
+                var sum = 0
+                var length = 0
+                for row in startRow..<state.board.rows {
+                    let pos = GridPosition(row: row, column: column)
+                    guard let value = state.board.cell(at: pos)?.value else { break }
+                    sum += value
+                    length += 1
+                    if length >= 2, sum == target { return true }
+                    if sum >= target { break }
+                }
+            }
+        }
+
+        return false
     }
 }

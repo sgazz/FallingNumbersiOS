@@ -3,6 +3,7 @@ import Foundation
 struct GameState {
     var board: Board
     var activePiece: FallingPiece?
+    var lastLockedPosition: GridPosition?
     var isLockDelayActive: Bool
     var lockDelayRemaining: TimeInterval
     var nextPieceValue: Int
@@ -25,6 +26,7 @@ struct GameState {
         GameState(
             board: Board(rows: config.rows, columns: config.columns),
             activePiece: nil,
+            lastLockedPosition: nil,
             isLockDelayActive: false,
             lockDelayRemaining: 0,
             nextPieceValue: 1,
