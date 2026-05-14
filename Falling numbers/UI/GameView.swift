@@ -2,12 +2,17 @@ import SwiftUI
 
 struct GameView: View {
     @ObservedObject var viewModel: GameScreenViewModel
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @State private var isSettingsPresented = false
     @State private var scorePulse = false
     @State private var comboPulse = false
     @State private var targetPulse = false
     @State private var boardOffsetY: CGFloat = 0
     @State private var boardScale: CGFloat = 1.0
+#if DEBUG
+    @State private var controlsFrame: CGRect = .zero
+    @State private var boardFrame: CGRect = .zero
+#endif
 
     var body: some View {
         ZStack {
@@ -15,49 +20,38 @@ struct GameView: View {
                 .ignoresSafeArea()
 
             GeometryReader { proxy in
-                let contentHorizontalPadding: CGFloat = 14
-                let boardHorizontalPadding: CGFloat = 8
-                let topInset = max(4, proxy.safeAreaInsets.top)
-                let bottomInset = max(10, proxy.safeAreaInsets.bottom)
+                let sidePadding: CGFloat = 8
+                let contentPadding: CGFloat = 12
+                let topInset = max(2, proxy.safeAreaInsets.top)
 
-                let topBarHeight: CGFloat = 30
-                let hudHeight: CGFloat = 58
-                let controlsHeight: CGFloat = 48
-                let helperHeight: CGFloat = (!viewModel.state.hasPlayerMoved && !viewModel.state.isGameOver) ? 24 : 0
-                let spacingBudget: CGFloat = (!viewModel.state.hasPlayerMoved && !viewModel.state.isGameOver) ? 24 : 18
-                let fixedVertical = topInset + bottomInset + topBarHeight + hudHeight + controlsHeight + helperHeight + spacingBudget
+                let topRowHeight: CGFloat = 32
+                let secondRowHeight: CGFloat = 30
+                let boardTopGap: CGFloat = 8
+                let controlsReservedHeight: CGFloat = voiceOverEnabled ? 66 : 8
+                let verticalSpacing: CGFloat = 6
+
+                let fixedVertical = topInset
+                    + topRowHeight
+                    + secondRowHeight
+                    + boardTopGap
+                    + controlsReservedHeight
+                    + verticalSpacing * 2
 
                 let availableBoardHeight = max(220, proxy.size.height - fixedVertical)
-                let maxBoardWidthFromScreen = max(170, proxy.size.width - boardHorizontalPadding * 2)
-                let boardHeight = min(availableBoardHeight, maxBoardWidthFromScreen * 2)
+                let maxBoardWidth = max(170, proxy.size.width - sidePadding * 2)
+                let boardHeight = min(availableBoardHeight, maxBoardWidth * 2)
                 let boardWidth = boardHeight * 0.5
 
-                VStack(spacing: 6) {
-                    HStack {
-                        Spacer()
-                        iconButton(symbol: "pause.circle", accessibilityLabel: viewModel.state.isPaused ? "Resume game" : "Pause game") {
-                            viewModel.togglePause()
-                        }
-                        iconButton(symbol: "gearshape", accessibilityLabel: "Open settings") {
-                            isSettingsPresented = true
-                        }
-                    }
-                    .padding(.horizontal, contentHorizontalPadding)
-                    .frame(height: topBarHeight)
+                VStack(spacing: verticalSpacing) {
+                    scoreBestLayer
+                        .frame(height: topRowHeight)
+                        .padding(.horizontal, contentPadding)
 
-                    HUDView(
-                        score: viewModel.state.score,
-                        highScore: viewModel.highScore,
-                        target: viewModel.state.targetNumber,
-                        level: viewModel.state.level,
-                        combo: viewModel.state.comboCount,
-                        next: viewModel.state.nextPieceValue,
-                        targetPulsing: targetPulse
-                    )
-                    .padding(.horizontal, contentHorizontalPadding)
-                    .scaleEffect(scorePulse || comboPulse ? 1.03 : 1.0)
-                    .animation(.easeOut(duration: 0.16), value: scorePulse)
-                    .animation(.easeOut(duration: 0.16), value: comboPulse)
+                    compactStatsLayer
+                        .frame(height: secondRowHeight)
+                        .padding(.horizontal, contentPadding)
+
+                    Color.clear.frame(height: boardTopGap)
 
                     SpriteKitRenderer(state: Binding(
                         get: { viewModel.state },
@@ -65,48 +59,35 @@ struct GameView: View {
                     ))
                     .frame(width: boardWidth, height: boardHeight)
                     .overlay {
+                        invisibleControlZones
+                    }
+                    .overlay {
                         RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color.white.opacity(0.14), lineWidth: 0.7)
+                            .stroke(NeonTheme.chipStroke, lineWidth: 0.8)
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .gesture(
-                        DragGesture(minimumDistance: 18)
-                            .onEnded { value in
-                                viewModel.handleDrag(translation: value.translation)
-                            }
-                    )
                     .scaleEffect(boardScale)
                     .offset(y: boardOffsetY)
-
-                    HStack(spacing: 12) {
-                        controlButton(symbol: "chevron.left", label: "Left", accessibilityLabel: "Move left", action: viewModel.moveLeft)
-                        controlButton(symbol: "arrow.down", label: "Down", accessibilityLabel: "Soft drop", action: viewModel.softDrop)
-                        controlButton(symbol: "arrow.down.to.line", label: "Drop", accessibilityLabel: "Hard drop", action: viewModel.hardDrop)
-                        controlButton(symbol: "chevron.right", label: "Right", accessibilityLabel: "Move right", action: viewModel.moveRight)
-                    }
-                    .frame(height: controlsHeight)
-                    .padding(.horizontal, contentHorizontalPadding)
-
-                    if !viewModel.state.hasPlayerMoved && !viewModel.state.isGameOver {
-                        Text("Match connected numbers to the target.")
-                            .font(.footnote)
-                            .foregroundStyle(.white.opacity(0.78))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(Color.black.opacity(0.3))
-                            .clipShape(Capsule())
-                    }
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear
+                                .preference(key: BoardFramePreferenceKey.self, value: geo.frame(in: .global))
+                        }
+                    )
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .padding(.top, topInset)
-                .padding(.bottom, bottomInset)
+                .padding(.horizontal, sidePadding)
+                .overlay(alignment: .bottom) {
+                    helperHintOverlay
+                        .padding(.bottom, 6)
+                }
 
 #if DEBUG
                 if viewModel.diagnosticsEnabled {
                     diagnosticsOverlay(
                         screenHeight: proxy.size.height,
                         boardHeight: boardHeight,
-                        controlsHeight: controlsHeight,
                         topSpacing: topInset
                     )
                 }
@@ -131,6 +112,40 @@ struct GameView: View {
                     .transition(.opacity)
             }
         }
+        .onPreferenceChange(BoardFramePreferenceKey.self) { frame in
+#if DEBUG
+            boardFrame = frame
+            if viewModel.diagnosticsEnabled {
+                print("DEBUG board frame: x=\(Int(frame.minX)) y=\(Int(frame.minY)) w=\(Int(frame.width)) h=\(Int(frame.height))")
+            }
+#endif
+        }
+        .safeAreaInset(edge: .bottom) {
+            Group {
+                if voiceOverEnabled {
+                    controlsRow
+                        .padding(.horizontal, 14)
+                        .padding(.top, 6)
+                        .padding(.bottom, 8)
+                } else {
+                    Color.clear.frame(height: 1)
+                }
+            }
+            .background(
+                GeometryReader { geo in
+                    Color.clear
+                        .preference(key: ControlsFramePreferenceKey.self, value: geo.frame(in: .global))
+                }
+            )
+        }
+        .onPreferenceChange(ControlsFramePreferenceKey.self) { frame in
+#if DEBUG
+            controlsFrame = frame
+            if viewModel.diagnosticsEnabled {
+                print("DEBUG controls frame: x=\(Int(frame.minX)) y=\(Int(frame.minY)) w=\(Int(frame.width)) h=\(Int(frame.height))")
+            }
+#endif
+        }
         .animation(.easeInOut(duration: 0.32), value: viewModel.showsStartOverlay)
         .onChange(of: viewModel.state.score) { _, _ in
             pulseScore()
@@ -151,6 +166,133 @@ struct GameView: View {
         }
         .sheet(isPresented: $isSettingsPresented) {
             SettingsView(viewModel: viewModel)
+        }
+    }
+
+    private var scoreBestLayer: some View {
+        HStack(spacing: 8) {
+            inlineChip(text: "Score \(viewModel.state.score)")
+                .scaleEffect(scorePulse ? 1.03 : 1.0)
+                .animation(.easeOut(duration: 0.16), value: scorePulse)
+                .accessibilityLabel("Score \(viewModel.state.score)")
+            iconButton(symbol: "pause.circle", accessibilityLabel: viewModel.state.isPaused ? "Resume game" : "Pause game") {
+                viewModel.togglePause()
+            }
+            iconButton(symbol: "gearshape", accessibilityLabel: "Open settings") {
+                isSettingsPresented = true
+            }
+            inlineChip(text: "Best \(viewModel.highScore)")
+                .accessibilityLabel("High score \(viewModel.highScore)")
+        }
+    }
+
+    private var compactStatsLayer: some View {
+        HStack(spacing: 6) {
+            inlineChip(text: "Lvl \(viewModel.state.level)")
+                .accessibilityLabel("Level \(viewModel.state.level)")
+            targetInlineChip
+                .accessibilityLabel("Target number \(viewModel.state.targetNumber)")
+            inlineChip(text: "Combo \(viewModel.state.comboCount)")
+                .scaleEffect(comboPulse ? 1.03 : 1.0)
+                .animation(.easeOut(duration: 0.16), value: comboPulse)
+                .accessibilityLabel("Combo \(viewModel.state.comboCount)")
+            inlineChip(text: "Next \(viewModel.state.nextPieceValue)")
+                .accessibilityLabel("Next piece \(viewModel.state.nextPieceValue)")
+        }
+    }
+
+    private var targetInlineChip: some View {
+        Text("TARGET \(viewModel.state.targetNumber)")
+            .font(.subheadline.weight(.heavy))
+            .tracking(0.4)
+            .foregroundStyle(NeonTheme.textPrimary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(NeonTheme.chipFill)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(NeonTheme.chipStroke, lineWidth: 1.0)
+            )
+            .scaleEffect(targetPulse ? 1.06 : 1.0)
+            .animation(.easeOut(duration: 0.2), value: targetPulse)
+    }
+
+    private var helperHintOverlay: some View {
+        Text("Make horizontal or vertical sums to match the target.")
+            .font(.footnote)
+            .foregroundStyle(NeonTheme.textPrimary.opacity(0.82))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(NeonTheme.chipFill.opacity(0.96))
+            .clipShape(Capsule())
+            .opacity((!viewModel.state.hasPlayerMoved && !viewModel.state.isGameOver) ? 1 : 0)
+            .animation(.easeOut(duration: 0.2), value: viewModel.state.hasPlayerMoved)
+    }
+
+    private var controlsRow: some View {
+        HStack(spacing: 12) {
+            controlButton(symbol: "chevron.left", label: "Left", accessibilityLabel: "Move left") {
+                viewModel.moveLeft()
+            }
+            controlButton(symbol: "arrow.down", label: "Down", accessibilityLabel: "Soft drop") {
+                viewModel.softDrop()
+            }
+            controlButton(symbol: "arrow.down.to.line", label: "Drop", accessibilityLabel: "Hard drop") {
+                viewModel.hardDrop()
+            }
+            controlButton(symbol: "chevron.right", label: "Right", accessibilityLabel: "Move right") {
+                viewModel.moveRight()
+            }
+        }
+        .frame(height: 48)
+    }
+
+    private var invisibleControlZones: some View {
+        GeometryReader { geo in
+            let width = geo.size.width
+            let height = geo.size.height
+
+            ZStack {
+                HStack(spacing: 0) {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { viewModel.moveLeft() }
+                        .accessibilityHidden(true)
+
+                    Color.clear
+                        .accessibilityHidden(true)
+
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { viewModel.moveRight() }
+                        .accessibilityHidden(true)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                Color.clear
+                    .contentShape(Rectangle())
+                    .frame(width: width * 0.42, height: height * 0.34)
+                    .position(x: width * 0.5, y: height * 0.82)
+                    .onTapGesture { viewModel.softDrop() }
+                    .accessibilityHidden(true)
+            }
+            .contentShape(Rectangle())
+            .highPriorityGesture(
+                TapGesture(count: 2).onEnded {
+                    viewModel.hardDrop()
+                }
+            )
+            .gesture(
+                DragGesture(minimumDistance: GameScreenViewModel.swipeActivationThreshold)
+                    .onEnded { value in
+                        viewModel.handleDrag(translation: value.translation)
+                    }
+            )
         }
     }
 
@@ -190,95 +332,145 @@ struct GameView: View {
 
     @ViewBuilder
     private func overlayCard(title: String, subtitle: String, buttonTitle: String, action: @escaping () -> Void) -> some View {
-        Color.black.opacity(0.58)
+        NeonTheme.overlayScrim
             .ignoresSafeArea()
 
         VStack(spacing: 12) {
             Text(title)
                 .font(.title2.bold())
-                .foregroundStyle(.white)
+                .foregroundStyle(NeonTheme.textPrimary)
             Text(subtitle)
                 .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.82))
+                .foregroundStyle(NeonTheme.textSecondary)
 
             Button(buttonTitle, action: action)
                 .buttonStyle(.borderedProminent)
                 .tint(NeonTheme.controlsTint)
         }
         .padding(22)
-        .background(Color.black.opacity(0.78))
+        .background(NeonTheme.cardFill)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay {
             RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                .stroke(NeonTheme.cardStroke, lineWidth: 1)
         }
     }
 
     @ViewBuilder
     private var startOverlay: some View {
-        Color.black.opacity(0.58)
+        NeonTheme.overlayScrim
             .ignoresSafeArea()
 
         VStack(spacing: 12) {
             Text("Fall, Number… Fall!")
                 .font(.title.bold())
-                .foregroundStyle(.white)
-            Text("Match connected numbers to the target.")
+                .foregroundStyle(NeonTheme.textPrimary)
+            Text("Make horizontal or vertical sums to match the target.")
                 .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.82))
+                .foregroundStyle(NeonTheme.textSecondary)
+            startLineHint
             Button("Play", action: viewModel.startGameFromOverlay)
                 .buttonStyle(.borderedProminent)
                 .tint(NeonTheme.controlsTint)
                 .accessibilityLabel("Start game")
         }
         .padding(22)
-        .background(Color.black.opacity(0.78))
+        .background(NeonTheme.cardFill)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .scaleEffect(0.985)
         .overlay {
             RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                .stroke(NeonTheme.cardStroke, lineWidth: 1)
         }
+    }
+
+    private var startLineHint: some View {
+        HStack(spacing: 8) {
+            hintChip("4")
+            Text("+")
+                .font(.footnote.weight(.bold))
+                .foregroundStyle(NeonTheme.textSecondary)
+            hintChip("6")
+            Text("=")
+                .font(.footnote.weight(.bold))
+                .foregroundStyle(NeonTheme.textSecondary)
+            hintChip("10")
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Example line sum, four plus six equals ten.")
+    }
+
+    private func hintChip(_ text: String) -> some View {
+        Text(text)
+            .font(.footnote.weight(.bold))
+            .foregroundStyle(NeonTheme.textPrimary)
+            .frame(width: 28, height: 28)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(NeonTheme.chipFill)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(NeonTheme.chipStroke, lineWidth: 0.8)
+            )
     }
 
     @ViewBuilder
     private var pauseOverlay: some View {
-        Color.black.opacity(0.58)
+        NeonTheme.overlayScrim
             .ignoresSafeArea()
 
         VStack(spacing: 12) {
             Text("Paused")
                 .font(.title2.bold())
-                .foregroundStyle(.white)
+                .foregroundStyle(NeonTheme.textPrimary)
             HStack(spacing: 10) {
                 Button("Resume", action: viewModel.togglePause)
                     .buttonStyle(.borderedProminent)
                     .tint(NeonTheme.controlsTint)
                 Button("New Game", action: viewModel.newGame)
                     .buttonStyle(.bordered)
-                    .tint(.white.opacity(0.85))
+                    .tint(NeonTheme.textPrimary.opacity(0.75))
             }
         }
         .padding(22)
-        .background(Color.black.opacity(0.78))
+        .background(NeonTheme.cardFill)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay {
             RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                .stroke(NeonTheme.cardStroke, lineWidth: 1)
         }
     }
 
     private func iconButton(symbol: String, accessibilityLabel: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.95))
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(NeonTheme.textPrimary.opacity(0.92))
                 .frame(width: 32, height: 32)
-                .background(Color.black.opacity(0.38))
+                .background(NeonTheme.chipFill.opacity(0.98))
                 .clipShape(Circle())
-                .overlay(Circle().stroke(Color.white.opacity(0.16), lineWidth: 0.8))
+                .overlay(Circle().stroke(NeonTheme.chipStroke, lineWidth: 0.8))
         }
         .accessibilityLabel(accessibilityLabel)
+    }
+
+    private func inlineChip(text: String) -> some View {
+        Text(text)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(NeonTheme.textPrimary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
+            .padding(.horizontal, 10)
+            .frame(maxHeight: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(NeonTheme.chipFill)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(NeonTheme.chipStroke, lineWidth: 0.7)
+        )
     }
 
     private func controlButton(symbol: String, label: String, accessibilityLabel: String, action: @escaping () -> Void) -> some View {
@@ -289,21 +481,21 @@ struct GameView: View {
                 Text(label)
                     .font(.caption2.weight(.semibold))
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(NeonTheme.textPrimary)
             .frame(maxWidth: .infinity, minHeight: 46)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.black.opacity(0.38))
+                    .fill(NeonTheme.chipFill)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color(red: 0.42, green: 0.82, blue: 0.98).opacity(0.34), lineWidth: 0.9)
+                    .stroke(NeonTheme.chipStroke, lineWidth: 0.9)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
                     .fill(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.08), Color.clear],
+                            colors: [Color.white.opacity(0.16), Color.clear],
                             startPoint: .top,
                             endPoint: .bottom
                         )
@@ -315,7 +507,7 @@ struct GameView: View {
     }
 
 #if DEBUG
-    private func diagnosticsOverlay(screenHeight: CGFloat, boardHeight: CGFloat, controlsHeight: CGFloat, topSpacing: CGFloat) -> some View {
+    private func diagnosticsOverlay(screenHeight: CGFloat, boardHeight: CGFloat, topSpacing: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("FPS: ~60")
             Text(String(format: "Tick: %.2fs", viewModel.state.currentTickInterval))
@@ -323,13 +515,14 @@ struct GameView: View {
             Text("Combo depth: \(viewModel.state.comboCount)")
             Text(String(format: "Screen H: %.0f", screenHeight))
             Text(String(format: "Board H: %.0f", boardHeight))
-            Text(String(format: "Controls H: %.0f", controlsHeight))
             Text(String(format: "Top Spacing: %.0f", topSpacing))
+            Text(String(format: "Controls Y: %.0f", controlsFrame.minY))
+            Text(String(format: "Board Top: %.0f", boardFrame.minY))
         }
         .font(.caption2.monospacedDigit())
         .padding(8)
-        .background(Color.black.opacity(0.55))
-        .foregroundStyle(.white)
+                .background(NeonTheme.chipFill.opacity(0.94))
+        .foregroundStyle(NeonTheme.textPrimary)
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(10)
@@ -342,10 +535,24 @@ private struct ControlPadButtonStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
             .shadow(
-                color: Color(red: 0.42, green: 0.82, blue: 0.98).opacity(configuration.isPressed ? 0.28 : 0.0),
-                radius: configuration.isPressed ? 8 : 0
+                color: Color(red: 0.40, green: 0.29, blue: 0.21).opacity(configuration.isPressed ? 0.22 : 0.0),
+                radius: configuration.isPressed ? 6 : 0
             )
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+private struct ControlsFramePreferenceKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
+    }
+}
+
+private struct BoardFramePreferenceKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
     }
 }
 

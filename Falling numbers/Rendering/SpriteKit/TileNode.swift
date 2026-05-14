@@ -4,18 +4,25 @@ import UIKit
 final class TileNode: SKNode {
     private let shadowNode = SKShapeNode()
     private let shapeNode = SKShapeNode()
-    private let labelNode = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+    private let labelShadowNode = SKLabelNode(fontNamed: "AvenirNext-Bold")
+    private let labelNode = SKLabelNode(fontNamed: "AvenirNext-Bold")
 
     init(value: Int, size: CGFloat, isActive: Bool) {
         super.init()
 
         addChild(shadowNode)
         addChild(shapeNode)
+        addChild(labelShadowNode)
         addChild(labelNode)
+
+        labelShadowNode.verticalAlignmentMode = .center
+        labelShadowNode.horizontalAlignmentMode = .center
+        labelShadowNode.fontColor = UIColor(red: 0.20, green: 0.12, blue: 0.08, alpha: 0.28)
+        labelShadowNode.zPosition = 1.8
 
         labelNode.verticalAlignmentMode = .center
         labelNode.horizontalAlignmentMode = .center
-        labelNode.fontColor = .white
+        labelNode.fontColor = UIColor(red: 0.15, green: 0.09, blue: 0.06, alpha: 0.98)
         labelNode.zPosition = 2
 
         update(value: value, size: size, isActive: isActive)
@@ -35,15 +42,15 @@ final class TileNode: SKNode {
         )
 
         shadowNode.path = roundedPath
-        shadowNode.fillColor = UIColor.black.withAlphaComponent(0.28)
+        shadowNode.fillColor = UIColor(red: 0.21, green: 0.13, blue: 0.09, alpha: 0.18)
         shadowNode.strokeColor = .clear
         shadowNode.position = CGPoint(x: 0, y: -size * 0.05)
 
         shapeNode.path = roundedPath
         shapeNode.fillColor = NeonTheme.tileColor(for: value)
         shapeNode.strokeColor = NeonTheme.tileStroke
-        shapeNode.lineWidth = max(1.2, size * 0.04)
-        shapeNode.glowWidth = isActive ? size * 0.15 : size * 0.1
+        shapeNode.lineWidth = max(1.2, size * 0.036)
+        shapeNode.glowWidth = isActive ? size * 0.07 : size * 0.035
 
         if isActive {
             shapeNode.alpha = 1.0
@@ -53,19 +60,20 @@ final class TileNode: SKNode {
             run(SKAction.scale(to: 1.0, duration: 0.06), withKey: "activeScale")
         }
 
-        let stroke = NSAttributedString.Key.strokeColor
-        let strokeWidth = NSAttributedString.Key.strokeWidth
-        let foregroundColor = NSAttributedString.Key.foregroundColor
-        let font = NSAttributedString.Key.font
-        let labelSize = size * (isActive ? 0.58 : 0.55)
-        labelNode.attributedText = NSAttributedString(
-            string: "\(value)",
-            attributes: [
-                font: UIFont.systemFont(ofSize: labelSize, weight: .heavy),
-                foregroundColor: UIColor.white,
-                stroke: UIColor.black.withAlphaComponent(0.65),
-                strokeWidth: -3.8
-            ]
-        )
+        let labelSize = size * (isActive ? 0.72 : 0.68)
+        labelNode.text = "\(value)"
+        labelNode.fontName = "AvenirNext-Bold"
+        labelNode.fontSize = labelSize
+        labelNode.position = .zero
+
+        labelShadowNode.text = "\(value)"
+        labelShadowNode.fontName = "AvenirNext-Bold"
+        labelShadowNode.fontSize = labelSize
+        labelShadowNode.position = CGPoint(x: 0, y: -size * 0.016)
+#if DEBUG
+        if isActive {
+            print("DEBUG tile label: value=\(value) size=\(Int(size)) font=\(Int(labelSize)) pos=(\(Int(labelNode.position.x)),\(Int(labelNode.position.y)))")
+        }
+#endif
     }
 }

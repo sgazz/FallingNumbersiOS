@@ -1,13 +1,75 @@
 import Foundation
 
 struct LevelSystem {
-    func level(forClearedTiles totalClearedTiles: Int) -> Int {
-        1 + (totalClearedTiles / 24)
+    func levelThreshold(_ level: Int) -> Int {
+        guard level > 1 else { return 0 }
+        let raw = 400.0 * pow(Double(level - 1), 1.45)
+        return Int(raw.rounded())
     }
 
-    func targetNumber(level: Int) -> Int {
-        // Deterministic 5...20 cycle to keep target variety stable and testable.
-        5 + ((level * 7) % 16)
+    func level(forScore score: Int) -> Int {
+        var level = 1
+        while score >= levelThreshold(level + 1) {
+            level += 1
+        }
+        return level
+    }
+
+    func progressToNextLevel(score: Int) -> Double {
+        let currentLevel = level(forScore: score)
+        let currentThreshold = levelThreshold(currentLevel)
+        let nextThreshold = levelThreshold(currentLevel + 1)
+        let span = max(1, nextThreshold - currentThreshold)
+        return min(1.0, max(0.0, Double(score - currentThreshold) / Double(span)))
+    }
+
+    func targetRange(forCycle cycle: Int) -> ClosedRange<Int> {
+        switch cycle {
+        case ...2:
+            return 8...12
+        case 3...5:
+            return 10...16
+        default:
+            return 12...20
+        }
+    }
+
+    func targetNumber(forCycle cycle: Int, previousTarget: Int, repeatCount: Int) -> Int {
+        let range = targetRange(forCycle: cycle)
+        let jumpCap: Int
+        switch cycle {
+        case ...2:
+            jumpCap = 2
+        case 3...5:
+            jumpCap = 3
+        default:
+            jumpCap = 4
+        }
+
+        // Deterministic candidate based on time cycle.
+        let span = range.upperBound - range.lowerBound + 1
+        var candidate = range.lowerBound + (((cycle + 1) * 7 + 3) % span)
+
+        let delta = candidate - previousTarget
+        if abs(delta) > jumpCap {
+            candidate = previousTarget + (delta > 0 ? jumpCap : -jumpCap)
+        }
+        candidate = min(range.upperBound, max(range.lowerBound, candidate))
+
+        if candidate == previousTarget {
+            if repeatCount >= 2 {
+                candidate += 1
+                if candidate > range.upperBound {
+                    candidate = range.lowerBound
+                }
+            } else if candidate < range.upperBound {
+                candidate += 1
+            } else {
+                candidate -= 1
+            }
+        }
+
+        return candidate
     }
 
     func tickInterval(base: TimeInterval, level: Int) -> TimeInterval {

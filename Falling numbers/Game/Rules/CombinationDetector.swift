@@ -1,114 +1,62 @@
 import Foundation
 
 struct CombinationDetector {
-    // Subset-search behavior:
-    // this finder enumerates connected subsets (not only full components),
-    // enabling clears like 4+6 inside larger connected regions.
+    // Line-matching behavior:
+    // valid groups are contiguous horizontal or vertical sequences (length >= 2)
+    // whose sum equals the target.
     func findMatchingGroups(on board: Board, target: Int) -> [[GridPosition]] {
         guard target > 0 else { return [] }
+        var matches: [[GridPosition]] = []
+        var seen = Set<String>()
 
-        let occupied = board.allOccupiedPositions().sorted(by: positionLess)
-        let occupiedSet = Set(occupied)
-        var seenKeys = Set<String>()
-        var result: [[GridPosition]] = []
+        for row in 0..<board.rows {
+            for startColumn in 0..<board.columns {
+                var sum = 0
+                var group: [GridPosition] = []
 
-        for anchor in occupied {
-            guard let anchorValue = board.cell(at: anchor)?.value else { continue }
-            if anchorValue > target { continue }
+                for column in startColumn..<board.columns {
+                    let position = GridPosition(row: row, column: column)
+                    guard let value = board.cell(at: position)?.value else { break }
+                    sum += value
+                    group.append(position)
 
-            let anchorIndex = linearIndex(anchor, columns: board.columns)
-            var group = Set([anchor])
-            var frontier = Set(neighbors(of: anchor, board: board).filter {
-                occupiedSet.contains($0) && linearIndex($0, columns: board.columns) >= anchorIndex
-            })
+                    if group.count >= 2, sum == target {
+                        let key = makeKey(group)
+                        if seen.insert(key).inserted {
+                            matches.append(group)
+                        }
+                    }
 
-            search(
-                board: board,
-                target: target,
-                anchorIndex: anchorIndex,
-                currentSum: anchorValue,
-                group: &group,
-                frontier: &frontier,
-                occupiedSet: occupiedSet,
-                seenKeys: &seenKeys,
-                result: &result
-            )
-        }
-
-        result.sort(by: groupLess)
-        return result
-    }
-
-    private func search(
-        board: Board,
-        target: Int,
-        anchorIndex: Int,
-        currentSum: Int,
-        group: inout Set<GridPosition>,
-        frontier: inout Set<GridPosition>,
-        occupiedSet: Set<GridPosition>,
-        seenKeys: inout Set<String>,
-        result: inout [[GridPosition]]
-    ) {
-        if currentSum == target {
-            let sorted = group.sorted(by: positionLess)
-            let key = makeKey(sorted)
-            if seenKeys.insert(key).inserted {
-                result.append(sorted)
-            }
-            return
-        }
-
-        if currentSum > target || frontier.isEmpty {
-            return
-        }
-
-        let candidates = frontier.sorted(by: positionLess)
-
-        for candidate in candidates {
-            guard let value = board.cell(at: candidate)?.value else { continue }
-            let nextSum = currentSum + value
-            if nextSum > target { continue }
-
-            let oldFrontier = frontier
-            group.insert(candidate)
-            frontier.remove(candidate)
-
-            for neighbor in neighbors(of: candidate, board: board) {
-                let index = linearIndex(neighbor, columns: board.columns)
-                if occupiedSet.contains(neighbor), !group.contains(neighbor), index >= anchorIndex {
-                    frontier.insert(neighbor)
+                    if sum >= target { break }
                 }
             }
-
-            search(
-                board: board,
-                target: target,
-                anchorIndex: anchorIndex,
-                currentSum: nextSum,
-                group: &group,
-                frontier: &frontier,
-                occupiedSet: occupiedSet,
-                seenKeys: &seenKeys,
-                result: &result
-            )
-
-            group.remove(candidate)
-            frontier = oldFrontier
         }
-    }
 
-    private func neighbors(of position: GridPosition, board: Board) -> [GridPosition] {
-        [
-            position.translated(rowDelta: -1, columnDelta: 0),
-            position.translated(rowDelta: 1, columnDelta: 0),
-            position.translated(rowDelta: 0, columnDelta: -1),
-            position.translated(rowDelta: 0, columnDelta: 1)
-        ].filter { board.isInside($0) }
-    }
+        for column in 0..<board.columns {
+            for startRow in 0..<board.rows {
+                var sum = 0
+                var group: [GridPosition] = []
 
-    private func linearIndex(_ position: GridPosition, columns: Int) -> Int {
-        position.row * columns + position.column
+                for row in startRow..<board.rows {
+                    let position = GridPosition(row: row, column: column)
+                    guard let value = board.cell(at: position)?.value else { break }
+                    sum += value
+                    group.append(position)
+
+                    if group.count >= 2, sum == target {
+                        let key = makeKey(group)
+                        if seen.insert(key).inserted {
+                            matches.append(group)
+                        }
+                    }
+
+                    if sum >= target { break }
+                }
+            }
+        }
+
+        matches.sort(by: groupLess)
+        return matches
     }
 
     private func positionLess(_ lhs: GridPosition, _ rhs: GridPosition) -> Bool {
