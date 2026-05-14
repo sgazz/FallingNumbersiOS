@@ -181,6 +181,79 @@ struct FallingNumbersTests {
     }
 
     @Test
+    @MainActor
+    func swipeLeftMovesExactlyOneColumn() {
+        let config = GameConfig(columns: 4, rows: 6, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.activePiece = FallingPiece(value: 5, position: GridPosition(row: 0, column: 2))
+        let engine = GameEngine(state: state, config: config)
+
+        let viewModel = GameScreenViewModel(engine: engine, highScoreStore: TestHighScoreStore(initial: 0))
+        viewModel.startGameFromOverlay()
+        let before = viewModel.state.activePiece!.position
+
+        viewModel.handleDrag(translation: CGSize(width: -60, height: 8))
+        let after = viewModel.state.activePiece!.position
+
+        #expect(after.column == before.column - 1)
+        #expect(after.row == before.row)
+    }
+
+    @Test
+    @MainActor
+    func swipeRightMovesExactlyOneColumn() {
+        let config = GameConfig(columns: 4, rows: 6, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.activePiece = FallingPiece(value: 5, position: GridPosition(row: 0, column: 1))
+        let engine = GameEngine(state: state, config: config)
+
+        let viewModel = GameScreenViewModel(engine: engine, highScoreStore: TestHighScoreStore(initial: 0))
+        viewModel.startGameFromOverlay()
+        let before = viewModel.state.activePiece!.position
+
+        viewModel.handleDrag(translation: CGSize(width: 64, height: 10))
+        let after = viewModel.state.activePiece!.position
+
+        #expect(after.column == before.column + 1)
+        #expect(after.row == before.row)
+    }
+
+    @Test
+    @MainActor
+    func shortSwipeDownSoftDropsOneRow() {
+        let config = GameConfig(columns: 4, rows: 6, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.activePiece = FallingPiece(value: 5, position: GridPosition(row: 0, column: 1))
+        let engine = GameEngine(state: state, config: config)
+
+        let viewModel = GameScreenViewModel(engine: engine, highScoreStore: TestHighScoreStore(initial: 0))
+        viewModel.startGameFromOverlay()
+        let before = viewModel.state.activePiece!.position
+
+        viewModel.handleDrag(translation: CGSize(width: 6, height: 46))
+        let after = viewModel.state.activePiece!.position
+
+        #expect(after.row == before.row + 1)
+        #expect(after.column == before.column)
+    }
+
+    @Test
+    @MainActor
+    func longSwipeDownHardDrops() {
+        let config = GameConfig(columns: 4, rows: 6, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.activePiece = FallingPiece(value: 8, position: GridPosition(row: 0, column: 1))
+        let engine = GameEngine(state: state, config: config)
+
+        let viewModel = GameScreenViewModel(engine: engine, highScoreStore: TestHighScoreStore(initial: 0))
+        viewModel.startGameFromOverlay()
+
+        viewModel.handleDrag(translation: CGSize(width: 0, height: 140))
+
+        #expect(viewModel.state.board.cell(at: GridPosition(row: 5, column: 1))?.value == 8)
+    }
+
+    @Test
     func gameOverWhenSpawnCellIsBlocked() {
         let config = GameConfig(columns: 10, rows: 20, tickInterval: 0.5, baseTargetNumber: 10)
         var state = GameState.initial(config: config)

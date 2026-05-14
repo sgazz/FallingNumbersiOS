@@ -4,6 +4,9 @@ import CoreGraphics
 
 @MainActor
 final class GameScreenViewModel: ObservableObject {
+    static let swipeActivationThreshold: CGFloat = 30
+    static let hardDropSwipeThreshold: CGFloat = 105
+
     @Published private(set) var state: GameState
     @Published private(set) var showsStartOverlay: Bool
     @Published private(set) var highScore: Int
@@ -119,8 +122,10 @@ final class GameScreenViewModel: ObservableObject {
 
         let horizontal = translation.width
         let vertical = translation.height
+        let swipeThreshold = Self.swipeActivationThreshold
+        let hardDropThreshold = Self.hardDropSwipeThreshold
 
-        guard max(abs(horizontal), abs(vertical)) >= 20 else { return }
+        guard max(abs(horizontal), abs(vertical)) >= swipeThreshold else { return }
 
         if abs(horizontal) > abs(vertical) {
             if horizontal < 0 {
@@ -131,9 +136,9 @@ final class GameScreenViewModel: ObservableObject {
             return
         }
 
-        if vertical > 90 {
+        if vertical > hardDropThreshold {
             hardDrop()
-        } else if vertical > 20 {
+        } else if vertical > swipeThreshold {
             softDrop()
         }
     }
