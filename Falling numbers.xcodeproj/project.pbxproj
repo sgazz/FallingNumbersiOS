@@ -1,0 +1,594 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXContainerItemProxy section */
+		CFFD537B2FB5B36C0056A47E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CFFD53592FB5B36A0056A47E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CFFD53602FB5B36A0056A47E;
+			remoteInfo = "Falling numbers";
+		};
+		CFFD53852FB5B36C0056A47E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CFFD53592FB5B36A0056A47E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CFFD53602FB5B36A0056A47E;
+			remoteInfo = "Falling numbers";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		CFFD53612FB5B36A0056A47E /* Falling numbers.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Falling numbers.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		CFFD537A2FB5B36C0056A47E /* Falling numbersTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Falling numbersTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		CFFD53842FB5B36C0056A47E /* Falling numbersUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Falling numbersUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		CFFD538C2FB5B36C0056A47E /* Exceptions for "Falling numbers" folder in "Falling numbers" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = CFFD53602FB5B36A0056A47E /* Falling numbers */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		CFFD53632FB5B36A0056A47E /* Falling numbers */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				CFFD538C2FB5B36C0056A47E /* Exceptions for "Falling numbers" folder in "Falling numbers" target */,
+			);
+			path = "Falling numbers";
+			sourceTree = "<group>";
+		};
+		CFFD537D2FB5B36C0056A47E /* Falling numbersTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Falling numbersTests";
+			sourceTree = "<group>";
+		};
+		CFFD53872FB5B36C0056A47E /* Falling numbersUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Falling numbersUITests";
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		CFFD535E2FB5B36A0056A47E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CFFD53772FB5B36C0056A47E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CFFD53812FB5B36C0056A47E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		CFFD53582FB5B36A0056A47E = {
+			isa = PBXGroup;
+			children = (
+				CFFD53632FB5B36A0056A47E /* Falling numbers */,
+				CFFD537D2FB5B36C0056A47E /* Falling numbersTests */,
+				CFFD53872FB5B36C0056A47E /* Falling numbersUITests */,
+				CFFD53622FB5B36A0056A47E /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		CFFD53622FB5B36A0056A47E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				CFFD53612FB5B36A0056A47E /* Falling numbers.app */,
+				CFFD537A2FB5B36C0056A47E /* Falling numbersTests.xctest */,
+				CFFD53842FB5B36C0056A47E /* Falling numbersUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		CFFD53602FB5B36A0056A47E /* Falling numbers */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CFFD538D2FB5B36C0056A47E /* Build configuration list for PBXNativeTarget "Falling numbers" */;
+			buildPhases = (
+				CFFD535D2FB5B36A0056A47E /* Sources */,
+				CFFD535E2FB5B36A0056A47E /* Frameworks */,
+				CFFD535F2FB5B36A0056A47E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				CFFD53632FB5B36A0056A47E /* Falling numbers */,
+			);
+			name = "Falling numbers";
+			packageProductDependencies = (
+			);
+			productName = "Falling numbers";
+			productReference = CFFD53612FB5B36A0056A47E /* Falling numbers.app */;
+			productType = "com.apple.product-type.application";
+		};
+		CFFD53792FB5B36C0056A47E /* Falling numbersTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CFFD53922FB5B36C0056A47E /* Build configuration list for PBXNativeTarget "Falling numbersTests" */;
+			buildPhases = (
+				CFFD53762FB5B36C0056A47E /* Sources */,
+				CFFD53772FB5B36C0056A47E /* Frameworks */,
+				CFFD53782FB5B36C0056A47E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				CFFD537C2FB5B36C0056A47E /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				CFFD537D2FB5B36C0056A47E /* Falling numbersTests */,
+			);
+			name = "Falling numbersTests";
+			packageProductDependencies = (
+			);
+			productName = "Falling numbersTests";
+			productReference = CFFD537A2FB5B36C0056A47E /* Falling numbersTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		CFFD53832FB5B36C0056A47E /* Falling numbersUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CFFD53952FB5B36C0056A47E /* Build configuration list for PBXNativeTarget "Falling numbersUITests" */;
+			buildPhases = (
+				CFFD53802FB5B36C0056A47E /* Sources */,
+				CFFD53812FB5B36C0056A47E /* Frameworks */,
+				CFFD53822FB5B36C0056A47E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				CFFD53862FB5B36C0056A47E /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				CFFD53872FB5B36C0056A47E /* Falling numbersUITests */,
+			);
+			name = "Falling numbersUITests";
+			packageProductDependencies = (
+			);
+			productName = "Falling numbersUITests";
+			productReference = CFFD53842FB5B36C0056A47E /* Falling numbersUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		CFFD53592FB5B36A0056A47E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2650;
+				LastUpgradeCheck = 2650;
+				TargetAttributes = {
+					CFFD53602FB5B36A0056A47E = {
+						CreatedOnToolsVersion = 26.5;
+					};
+					CFFD53792FB5B36C0056A47E = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = CFFD53602FB5B36A0056A47E;
+					};
+					CFFD53832FB5B36C0056A47E = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = CFFD53602FB5B36A0056A47E;
+					};
+				};
+			};
+			buildConfigurationList = CFFD535C2FB5B36A0056A47E /* Build configuration list for PBXProject "Falling numbers" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = CFFD53582FB5B36A0056A47E;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = CFFD53622FB5B36A0056A47E /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CFFD53602FB5B36A0056A47E /* Falling numbers */,
+				CFFD53792FB5B36C0056A47E /* Falling numbersTests */,
+				CFFD53832FB5B36C0056A47E /* Falling numbersUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		CFFD535F2FB5B36A0056A47E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CFFD53782FB5B36C0056A47E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CFFD53822FB5B36C0056A47E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CFFD535D2FB5B36A0056A47E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CFFD53762FB5B36C0056A47E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CFFD53802FB5B36C0056A47E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		CFFD537C2FB5B36C0056A47E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CFFD53602FB5B36A0056A47E /* Falling numbers */;
+			targetProxy = CFFD537B2FB5B36C0056A47E /* PBXContainerItemProxy */;
+		};
+		CFFD53862FB5B36C0056A47E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CFFD53602FB5B36A0056A47E /* Falling numbers */;
+			targetProxy = CFFD53852FB5B36C0056A47E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		CFFD538E2FB5B36C0056A47E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 83F7KY8L5Y;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Falling numbers/Info.plist";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "Gazza.Falling-numbers";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		CFFD538F2FB5B36C0056A47E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 83F7KY8L5Y;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Falling numbers/Info.plist";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "Gazza.Falling-numbers";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		CFFD53902FB5B36C0056A47E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 83F7KY8L5Y;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		CFFD53912FB5B36C0056A47E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 83F7KY8L5Y;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		CFFD53932FB5B36C0056A47E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 83F7KY8L5Y;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "Gazza.Falling-numbersTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Falling numbers.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Falling numbers";
+			};
+			name = Debug;
+		};
+		CFFD53942FB5B36C0056A47E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 83F7KY8L5Y;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "Gazza.Falling-numbersTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Falling numbers.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Falling numbers";
+			};
+			name = Release;
+		};
+		CFFD53962FB5B36C0056A47E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 83F7KY8L5Y;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "Gazza.Falling-numbersUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "Falling numbers";
+			};
+			name = Debug;
+		};
+		CFFD53972FB5B36C0056A47E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 83F7KY8L5Y;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "Gazza.Falling-numbersUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "Falling numbers";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		CFFD535C2FB5B36A0056A47E /* Build configuration list for PBXProject "Falling numbers" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CFFD53902FB5B36C0056A47E /* Debug */,
+				CFFD53912FB5B36C0056A47E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CFFD538D2FB5B36C0056A47E /* Build configuration list for PBXNativeTarget "Falling numbers" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CFFD538E2FB5B36C0056A47E /* Debug */,
+				CFFD538F2FB5B36C0056A47E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CFFD53922FB5B36C0056A47E /* Build configuration list for PBXNativeTarget "Falling numbersTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CFFD53932FB5B36C0056A47E /* Debug */,
+				CFFD53942FB5B36C0056A47E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CFFD53952FB5B36C0056A47E /* Build configuration list for PBXNativeTarget "Falling numbersUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CFFD53962FB5B36C0056A47E /* Debug */,
+				CFFD53972FB5B36C0056A47E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = CFFD53592FB5B36A0056A47E /* Project object */;
+}
