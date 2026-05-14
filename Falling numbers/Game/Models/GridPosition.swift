@@ -1,6 +1,6 @@
 import Foundation
 
-struct GridPosition: Hashable {
+nonisolated struct GridPosition: Hashable, Sendable {
     let row: Int
     let column: Int
 

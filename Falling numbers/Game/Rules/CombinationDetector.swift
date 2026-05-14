@@ -1,6 +1,9 @@
 import Foundation
 
 struct CombinationDetector {
+    // Subset-search behavior:
+    // this finder enumerates connected subsets (not only full components),
+    // enabling clears like 4+6 inside larger connected regions.
     func findMatchingGroups(on board: Board, target: Int) -> [[GridPosition]] {
         guard target > 0 else { return [] }
 

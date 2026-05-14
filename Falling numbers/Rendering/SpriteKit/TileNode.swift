@@ -1,4 +1,5 @@
 import SpriteKit
+import UIKit
 
 final class TileNode: SKNode {
     private let shadowNode = SKShapeNode()
@@ -42,7 +43,7 @@ final class TileNode: SKNode {
         shapeNode.fillColor = NeonTheme.tileColor(for: value)
         shapeNode.strokeColor = NeonTheme.tileStroke
         shapeNode.lineWidth = max(1.2, size * 0.04)
-        shapeNode.glowWidth = isActive ? size * 0.26 : size * 0.15
+        shapeNode.glowWidth = isActive ? size * 0.15 : size * 0.1
 
         if isActive {
             shapeNode.alpha = 1.0
@@ -52,18 +53,18 @@ final class TileNode: SKNode {
             run(SKAction.scale(to: 1.0, duration: 0.06), withKey: "activeScale")
         }
 
-        labelNode.text = "\(value)"
-        labelNode.fontSize = size * 0.5
-
         let stroke = NSAttributedString.Key.strokeColor
         let strokeWidth = NSAttributedString.Key.strokeWidth
         let foregroundColor = NSAttributedString.Key.foregroundColor
+        let font = NSAttributedString.Key.font
+        let labelSize = size * (isActive ? 0.58 : 0.55)
         labelNode.attributedText = NSAttributedString(
             string: "\(value)",
             attributes: [
+                font: UIFont.systemFont(ofSize: labelSize, weight: .heavy),
                 foregroundColor: UIColor.white,
                 stroke: UIColor.black.withAlphaComponent(0.65),
-                strokeWidth: -3.5
+                strokeWidth: -3.8
             ]
         )
     }

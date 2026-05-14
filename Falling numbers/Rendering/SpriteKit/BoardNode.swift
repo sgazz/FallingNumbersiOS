@@ -7,6 +7,7 @@ final class BoardNode: SKNode {
     private var cellSize: CGFloat = 0
     private var boardSize: CGSize = .zero
     private var previousActivePositions: Set<GridPosition> = []
+    private var lastGeometryKey: String?
 
     override init() {
         super.init()
@@ -32,8 +33,12 @@ final class BoardNode: SKNode {
             height: CGFloat(state.board.rows) * cellSize
         )
 
-        drawBoardBackground()
-        drawGrid(board: state.board)
+        let geometryKey = "\(state.board.rows)x\(state.board.columns)|\(Int(cellSize * 100))"
+        if geometryKey != lastGeometryKey {
+            drawBoardBackground()
+            drawGrid(board: state.board)
+            lastGeometryKey = geometryKey
+        }
 
         let occupied = Set(state.board.allOccupiedPositions())
         var needed = occupied

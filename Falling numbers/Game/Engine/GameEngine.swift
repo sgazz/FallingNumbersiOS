@@ -143,6 +143,8 @@ struct GameEngine {
     }
 
     private mutating func stepDownOrLock() {
+        // Tick model: each tick attempts exactly one downward step.
+        // If blocked, the active tile locks, board resolves, and next tile spawns.
         guard var piece = state.activePiece else {
             spawnIfNeeded()
             return

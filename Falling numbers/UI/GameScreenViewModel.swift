@@ -5,34 +5,49 @@ import CoreGraphics
 @MainActor
 final class GameScreenViewModel: ObservableObject {
     @Published private(set) var state: GameState
+    @Published private(set) var showsStartOverlay: Bool
     @Published private(set) var highScore: Int
     @Published private(set) var boardShakeToken: Int = 0
     @Published private(set) var comboPulseToken: Int = 0
     @Published private(set) var targetPulseToken: Int = 0
+    @Published private(set) var settings: AppSettings
+#if DEBUG
+    @Published var diagnosticsEnabled = false
+#endif
 
     private var engine: GameEngine
     private var timer: Timer?
     private var highScoreStore: HighScoreStoring
+    private let settingsStore: SettingsStoring
     private let haptics: HapticsClient
     private let audio: AudioClient
+    private var pausedByLifecycle = false
+    private(set) var timerStartCount = 0
 
     init(
         engine: GameEngine? = nil,
         highScoreStore: HighScoreStoring? = nil,
+        settingsStore: SettingsStoring? = nil,
         haptics: HapticsClient? = nil,
         audio: AudioClient? = nil
     ) {
         let resolvedEngine = engine ?? GameEngine()
         let resolvedHighScoreStore = highScoreStore ?? UserDefaultsHighScoreStore()
+        let resolvedSettingsStore = settingsStore ?? UserDefaultsSettingsStore()
 
         self.engine = resolvedEngine
         self.state = resolvedEngine.state
         self.highScoreStore = resolvedHighScoreStore
         self.highScore = resolvedHighScoreStore.load()
+        self.settingsStore = resolvedSettingsStore
+        self.settings = resolvedSettingsStore.load()
         self.haptics = haptics ?? UIKitHapticsClient()
         self.audio = audio ?? NoopAudioClient()
+        self.showsStartOverlay = true
 
         self.engine.send(.start)
+        syncFromEngine(previous: nil)
+        self.engine.send(.togglePause)
         syncFromEngine(previous: nil)
 
         startTimer()
@@ -47,8 +62,8 @@ final class GameScreenViewModel: ObservableObject {
         engine.send(.moveLeft)
         syncFromEngine(previous: state)
         if state.activePiece?.position != before {
-            haptics.moved()
-            audio.trigger(.move)
+            if settings.isHapticsEnabled { haptics.moved() }
+            if settings.isSoundEnabled { audio.trigger(.move) }
         }
     }
 
@@ -57,8 +72,8 @@ final class GameScreenViewModel: ObservableObject {
         engine.send(.moveRight)
         syncFromEngine(previous: state)
         if state.activePiece?.position != before {
-            haptics.moved()
-            audio.trigger(.move)
+            if settings.isHapticsEnabled { haptics.moved() }
+            if settings.isSoundEnabled { audio.trigger(.move) }
         }
     }
 
@@ -67,7 +82,7 @@ final class GameScreenViewModel: ObservableObject {
         engine.send(.softDrop)
         syncFromEngine(previous: state)
         if state.activePiece?.position != before {
-            haptics.moved()
+            if settings.isHapticsEnabled { haptics.moved() }
         }
     }
 
@@ -76,7 +91,7 @@ final class GameScreenViewModel: ObservableObject {
         engine.send(.hardDrop)
         syncFromEngine(previous: state)
         boardShakeToken &+= 1
-        audio.trigger(.hardDrop)
+        if settings.isSoundEnabled { audio.trigger(.hardDrop) }
     }
 
     func togglePause() {
@@ -87,6 +102,16 @@ final class GameScreenViewModel: ObservableObject {
     func newGame() {
         engine.send(.newGame)
         syncFromEngine(previous: state)
+        showsStartOverlay = false
+    }
+
+    func startGameFromOverlay() {
+        guard showsStartOverlay else { return }
+        showsStartOverlay = false
+        if state.isPaused {
+            engine.send(.togglePause)
+            syncFromEngine(previous: state)
+        }
     }
 
     func handleDrag(translation: CGSize) {
@@ -113,6 +138,39 @@ final class GameScreenViewModel: ObservableObject {
         }
     }
 
+    func setSoundEnabled(_ enabled: Bool) {
+        settings.isSoundEnabled = enabled
+        settingsStore.save(settings)
+    }
+
+    func setHapticsEnabled(_ enabled: Bool) {
+        settings.isHapticsEnabled = enabled
+        settingsStore.save(settings)
+    }
+
+    func resetHighScore() {
+        highScoreStore.save(0)
+        highScore = 0
+    }
+
+    func appDidEnterBackground() {
+        stopTimer()
+        guard !state.isPaused, !state.isGameOver else { return }
+        pausedByLifecycle = true
+        engine.send(.togglePause)
+        syncFromEngine(previous: state)
+    }
+
+    func appDidBecomeActive() {
+        if pausedByLifecycle, state.isPaused, !state.isGameOver {
+            pausedByLifecycle = false
+            engine.send(.togglePause)
+            syncFromEngine(previous: state)
+        } else {
+            startTimerIfNeeded()
+        }
+    }
+
     private func syncFromEngine(previous: GameState?) {
         state = engine.state
 
@@ -123,18 +181,18 @@ final class GameScreenViewModel: ObservableObject {
 
         if let previous {
             if previous.activePiece != nil, state.activePiece == nil {
-                haptics.pieceLocked()
-                audio.trigger(.lock)
+                if settings.isHapticsEnabled { haptics.pieceLocked() }
+                if settings.isSoundEnabled { audio.trigger(.lock) }
             }
             if state.comboCount > previous.comboCount, state.comboCount > 0 {
-                haptics.cleared(combo: state.comboCount)
-                audio.trigger(.clear(combo: state.comboCount))
+                if settings.isHapticsEnabled { haptics.cleared(combo: state.comboCount) }
+                if settings.isSoundEnabled { audio.trigger(.clear(combo: state.comboCount)) }
                 comboPulseToken &+= 1
                 targetPulseToken &+= 1
             }
             if !previous.isGameOver, state.isGameOver {
-                haptics.gameOver()
-                audio.trigger(.gameOver)
+                if settings.isHapticsEnabled { haptics.gameOver() }
+                if settings.isSoundEnabled { audio.trigger(.gameOver) }
             }
         }
 
@@ -142,6 +200,7 @@ final class GameScreenViewModel: ObservableObject {
     }
 
     private func startTimer() {
+        timerStartCount += 1
         timer = Timer.scheduledTimer(withTimeInterval: state.currentTickInterval, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -152,11 +211,30 @@ final class GameScreenViewModel: ObservableObject {
         }
     }
 
+    private func startTimerIfNeeded() {
+        guard timer == nil, !state.isPaused, !state.isGameOver else { return }
+        startTimer()
+    }
+
+    private func stopTimer() {
+        timer?.invalidate()
+        timer = nil
+    }
+
     private func restartTimerIfNeeded() {
-        guard let timer else { return }
+        if state.isPaused || state.isGameOver {
+            stopTimer()
+            return
+        }
+
+        guard let timer else {
+            startTimer()
+            return
+        }
+
         let epsilon = 0.0001
         if abs(timer.timeInterval - state.currentTickInterval) > epsilon {
-            timer.invalidate()
+            stopTimer()
             startTimer()
         }
     }

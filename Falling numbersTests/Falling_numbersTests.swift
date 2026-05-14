@@ -15,7 +15,10 @@ struct FallingNumbersTests {
 
         let matches = CombinationDetector().findMatchingGroups(on: board, target: 10)
 
-        #expect(matches.contains { Set($0) == Set([GridPosition(row: 1, column: 0), GridPosition(row: 1, column: 1)]) })
+        #expect(matches.map(groupKey).contains(groupKey([
+            GridPosition(row: 1, column: 0),
+            GridPosition(row: 1, column: 1)
+        ])))
     }
 
     @Test
@@ -28,11 +31,11 @@ struct FallingNumbersTests {
 
         let matches = CombinationDetector().findMatchingGroups(on: board, target: 10)
 
-        #expect(matches.contains { Set($0) == Set([
+        #expect(matches.map(groupKey).contains(groupKey([
             GridPosition(row: 1, column: 1),
             GridPosition(row: 1, column: 2),
             GridPosition(row: 1, column: 3)
-        ]) })
+        ])))
     }
 
     @Test
@@ -55,7 +58,7 @@ struct FallingNumbersTests {
         let matches = CombinationDetector().findMatchingGroups(on: board, target: 10)
 
         #expect(matches.count == 1)
-        #expect(Set(matches[0]) == Set([GridPosition(row: 0, column: 0), GridPosition(row: 0, column: 1)]))
+        #expect(groupKey(matches[0]) == groupKey([GridPosition(row: 0, column: 0), GridPosition(row: 0, column: 1)]))
     }
 
     @Test
@@ -70,8 +73,8 @@ struct FallingNumbersTests {
         let keys = first.map(groupKey)
 
         #expect(keys == keys.sorted())
-        #expect(first.contains { Set($0) == Set([GridPosition(row: 1, column: 0), GridPosition(row: 1, column: 1)]) })
-        #expect(first.contains { Set($0) == Set([GridPosition(row: 1, column: 2), GridPosition(row: 1, column: 3)]) })
+        #expect(keys.contains(groupKey([GridPosition(row: 1, column: 0), GridPosition(row: 1, column: 1)])))
+        #expect(keys.contains(groupKey([GridPosition(row: 1, column: 2), GridPosition(row: 1, column: 3)])))
     }
 
     @Test
@@ -152,6 +155,7 @@ struct FallingNumbersTests {
         let engine = GameEngine(state: state, config: config)
 
         let viewModel = GameScreenViewModel(engine: engine, highScoreStore: store)
+        viewModel.startGameFromOverlay()
         viewModel.hardDrop()
 
         #expect(viewModel.highScore > 5)
@@ -167,6 +171,7 @@ struct FallingNumbersTests {
         let engine = GameEngine(state: state, config: config)
 
         let viewModel = GameScreenViewModel(engine: engine, highScoreStore: TestHighScoreStore(initial: 0))
+        viewModel.startGameFromOverlay()
         viewModel.togglePause()
 
         let before = viewModel.state.activePiece
@@ -264,6 +269,84 @@ struct FallingNumbersTests {
         #expect(level40 == 0.26)
     }
 
+    @Test
+    @MainActor
+    func lifecyclePauseAndResumeBehavior() {
+        let viewModel = GameScreenViewModel(
+            engine: GameEngine(),
+            highScoreStore: TestHighScoreStore(initial: 0),
+            settingsStore: TestSettingsStore(initial: .default),
+            haptics: NoopHapticsClient(),
+            audio: NoopAudioClient()
+        )
+
+        viewModel.startGameFromOverlay()
+        #expect(!viewModel.state.isPaused)
+
+        viewModel.appDidEnterBackground()
+        #expect(viewModel.state.isPaused)
+
+        viewModel.appDidBecomeActive()
+        #expect(!viewModel.state.isPaused)
+    }
+
+    @Test
+    @MainActor
+    func settingsPersistenceAndResetHighScore() {
+        let highScoreStore = TestHighScoreStore(initial: 120)
+        let settingsStore = TestSettingsStore(initial: AppSettings(isSoundEnabled: true, isHapticsEnabled: true))
+        let viewModel = GameScreenViewModel(
+            engine: GameEngine(),
+            highScoreStore: highScoreStore,
+            settingsStore: settingsStore,
+            haptics: NoopHapticsClient(),
+            audio: NoopAudioClient()
+        )
+
+        viewModel.setSoundEnabled(false)
+        viewModel.setHapticsEnabled(false)
+        viewModel.resetHighScore()
+
+        #expect(settingsStore.savedSettings == AppSettings(isSoundEnabled: false, isHapticsEnabled: false))
+        #expect(viewModel.highScore == 0)
+        #expect(highScoreStore.savedValue == 0)
+    }
+
+    @Test
+    @MainActor
+    func foregroundDoesNotCreateDuplicateTimers() {
+        let viewModel = GameScreenViewModel(
+            engine: GameEngine(),
+            highScoreStore: TestHighScoreStore(initial: 0),
+            settingsStore: TestSettingsStore(initial: .default),
+            haptics: NoopHapticsClient(),
+            audio: NoopAudioClient()
+        )
+
+        let startCount = viewModel.timerStartCount
+        viewModel.appDidBecomeActive()
+        viewModel.appDidBecomeActive()
+
+        #expect(viewModel.timerStartCount == startCount)
+    }
+
+    @Test
+    func deterministicRestartState() {
+        let config = GameConfig(columns: 10, rows: 20, tickInterval: 0.65, baseTargetNumber: 10)
+        var engine = GameEngine(config: config)
+        engine.send(.start)
+        engine.send(.hardDrop)
+        engine.send(.newGame)
+
+        #expect(engine.state.score == 0)
+        #expect(engine.state.comboCount == 0)
+        #expect(engine.state.totalClearedTiles == 0)
+        #expect(!engine.state.isGameOver)
+        #expect(!engine.state.isPaused)
+        #expect(engine.state.activePiece != nil)
+        #expect((1...9).contains(engine.state.nextPieceValue))
+    }
+
     private func groupKey(_ group: [GridPosition]) -> String {
         group
             .sorted { lhs, rhs in
@@ -289,5 +372,22 @@ final class TestHighScoreStore: HighScoreStoring {
 
     func save(_ value: Int) {
         savedValue = value
+    }
+}
+
+@MainActor
+final class TestSettingsStore: SettingsStoring {
+    private(set) var savedSettings: AppSettings
+
+    init(initial: AppSettings) {
+        savedSettings = initial
+    }
+
+    func load() -> AppSettings {
+        savedSettings
+    }
+
+    func save(_ settings: AppSettings) {
+        savedSettings = settings
     }
 }
