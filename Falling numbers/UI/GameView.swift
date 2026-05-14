@@ -223,7 +223,7 @@ struct GameView: View {
     }
 
     private var helperHintOverlay: some View {
-        Text("Tap sides to move. Swipe down to drop.")
+        Text("Make horizontal or vertical sums to match the target.")
             .font(.footnote)
             .foregroundStyle(NeonTheme.textPrimary.opacity(0.82))
             .padding(.horizontal, 12)
@@ -365,9 +365,10 @@ struct GameView: View {
             Text("Fall, Number… Fall!")
                 .font(.title.bold())
                 .foregroundStyle(NeonTheme.textPrimary)
-            Text("Match connected numbers to the target.")
+            Text("Make horizontal or vertical sums to match the target.")
                 .font(.subheadline)
                 .foregroundStyle(NeonTheme.textSecondary)
+            startLineHint
             Button("Play", action: viewModel.startGameFromOverlay)
                 .buttonStyle(.borderedProminent)
                 .tint(NeonTheme.controlsTint)
@@ -381,6 +382,37 @@ struct GameView: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(NeonTheme.cardStroke, lineWidth: 1)
         }
+    }
+
+    private var startLineHint: some View {
+        HStack(spacing: 8) {
+            hintChip("4")
+            Text("+")
+                .font(.footnote.weight(.bold))
+                .foregroundStyle(NeonTheme.textSecondary)
+            hintChip("6")
+            Text("=")
+                .font(.footnote.weight(.bold))
+                .foregroundStyle(NeonTheme.textSecondary)
+            hintChip("10")
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Example line sum, four plus six equals ten.")
+    }
+
+    private func hintChip(_ text: String) -> some View {
+        Text(text)
+            .font(.footnote.weight(.bold))
+            .foregroundStyle(NeonTheme.textPrimary)
+            .frame(width: 28, height: 28)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(NeonTheme.chipFill)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(NeonTheme.chipStroke, lineWidth: 0.8)
+            )
     }
 
     @ViewBuilder

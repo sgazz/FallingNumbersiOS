@@ -4,14 +4,228 @@ import Foundation
 @testable import Falling_numbers
 
 struct FallingNumbersTests {
+    @Test
+    func newGameHasSafeInitialLayout() {
+        let config = GameConfig(columns: 10, rows: 20, tickInterval: 0.65, baseTargetNumber: 10, startingLayoutSeed: 1)
+        let engine = GameEngine(config: config)
+        let occupied = engine.state.board.allOccupiedPositions()
+
+        #expect((4...8).contains(occupied.count))
+        #expect(occupied.allSatisfy { $0.row >= config.rows - 3 })
+    }
 
     @Test
-    func findsTwoTileSubsetInsideLargerConnectedComponent() {
-        var board = Board(rows: 3, columns: 3)
+    func initialLayoutDoesNotBlockSpawn() {
+        let config = GameConfig(columns: 10, rows: 20, tickInterval: 0.65, baseTargetNumber: 10, startingLayoutSeed: 1)
+        var engine = GameEngine(config: config)
+        engine.send(.start)
+
+        #expect(!engine.state.isGameOver)
+        #expect(engine.state.activePiece != nil)
+    }
+
+    @Test
+    func initialLayoutDoesNotAutoClear() {
+        let config = GameConfig(columns: 10, rows: 20, tickInterval: 0.65, baseTargetNumber: 10, startingLayoutSeed: 1)
+        let engine = GameEngine(config: config)
+        let lines = CombinationDetector().findMatchingGroups(on: engine.state.board, target: engine.state.targetNumber)
+
+        #expect(lines.isEmpty)
+    }
+
+    @Test
+    func targetStartsAtTen() {
+        let config = GameConfig(columns: 10, rows: 20, tickInterval: 0.65, baseTargetNumber: 10, startingLayoutSeed: 1)
+        let engine = GameEngine(config: config)
+
+        #expect(engine.state.targetNumber == 10)
+        #expect(engine.state.targetCycleIndex == 0)
+    }
+
+    @Test
+    func startingLayoutIsDeterministicBySeed() {
+        let seedAConfig = GameConfig(columns: 10, rows: 20, tickInterval: 0.65, baseTargetNumber: 10, startingLayoutSeed: 7)
+        let seedBConfig = GameConfig(columns: 10, rows: 20, tickInterval: 0.65, baseTargetNumber: 10, startingLayoutSeed: 8)
+        let firstA = GameEngine(config: seedAConfig).state.board
+        let secondA = GameEngine(config: seedAConfig).state.board
+        let layoutB = GameEngine(config: seedBConfig).state.board
+
+        #expect(firstA == secondA)
+        #expect(firstA != layoutB)
+    }
+
+    @Test
+    func targetDoesNotChangeMidFall() {
+        let config = GameConfig(columns: 4, rows: 6, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.activePiece = FallingPiece(value: 5, position: GridPosition(row: 0, column: 1))
+        let targetBefore = state.targetNumber
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.tick)
+
+        #expect(engine.state.targetNumber == targetBefore)
+        #expect(engine.state.didTargetChange == false)
+    }
+
+    @Test
+    func targetCanChangeAfterTimerExpires() {
+        let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board = Board(rows: config.rows, columns: config.columns)
+        state.activePiece = FallingPiece(value: 6, position: GridPosition(row: 0, column: 1))
+        state.targetTimerRemaining = 0.01
+
+        var engine = GameEngine(state: state, config: config)
+        let targetBefore = engine.state.targetNumber
+        engine.send(.tick)
+        engine.send(.tick)
+
+        #expect(engine.state.targetCycleIndex == 1)
+        #expect(engine.state.targetNumber != targetBefore)
+        #expect(engine.state.didTargetChange)
+    }
+
+    @Test
+    func targetRangeFollowsCycleIndex() {
+        let levelSystem = LevelSystem()
+        #expect(levelSystem.targetRange(forCycle: 0) == 8...12)
+        #expect(levelSystem.targetRange(forCycle: 2) == 8...12)
+        #expect(levelSystem.targetRange(forCycle: 3) == 10...16)
+        #expect(levelSystem.targetRange(forCycle: 5) == 10...16)
+        #expect(levelSystem.targetRange(forCycle: 6) == 12...20)
+    }
+
+    @Test
+    func targetChangedEventEmitsOnlyOnActualChange() {
+        let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.65, baseTargetNumber: 10)
+        var midFallState = GameState.initial(config: config)
+        midFallState.activePiece = FallingPiece(value: 5, position: GridPosition(row: 0, column: 1))
+        var midFallEngine = GameEngine(state: midFallState, config: config)
+
+        // Mid-fall move: no target change event.
+        midFallEngine.send(.tick)
+        #expect(midFallEngine.state.didTargetChange == false)
+
+        // Timer-expiry change: event should emit once target actually changes.
+        var levelUpState = GameState.initial(config: config)
+        levelUpState.board = Board(rows: config.rows, columns: config.columns)
+        levelUpState.activePiece = FallingPiece(value: 6, position: GridPosition(row: 0, column: 2))
+        levelUpState.targetTimerRemaining = 0.01
+        var levelUpEngine = GameEngine(state: levelUpState, config: config)
+        let before = levelUpEngine.state.targetNumber
+        levelUpEngine.send(.tick)
+        levelUpEngine.send(.tick)
+
+        #expect(levelUpEngine.state.targetNumber != before)
+        #expect(levelUpEngine.state.didTargetChange)
+    }
+
+    @Test
+    func autoTickStartsLockDelayInsteadOfImmediateLock() {
+        let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.1, lockDelayDuration: 0.22, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board = Board(rows: config.rows, columns: config.columns)
+        state.activePiece = FallingPiece(value: 5, position: GridPosition(row: 3, column: 1))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.tick)
+
+        #expect(engine.state.activePiece != nil)
+        #expect(engine.state.isLockDelayActive)
+        #expect(engine.state.lockDelayRemaining == config.lockDelayDuration)
+    }
+
+    @Test
+    func lockOccursAfterDelayExpires() {
+        let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.1, lockDelayDuration: 0.7, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board = Board(rows: config.rows, columns: config.columns)
+        state.activePiece = FallingPiece(value: 5, position: GridPosition(row: 3, column: 1))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.tick) // start delay
+        engine.send(.tick) // 0.44
+        engine.send(.tick) // 0.18
+        #expect(engine.state.activePiece != nil)
+        engine.send(.tick) // expire and lock
+
+        #expect(engine.state.activePiece != nil) // next piece spawned
+        #expect(engine.state.board.cell(at: GridPosition(row: 3, column: 1))?.value == 5)
+        #expect(engine.state.isLockDelayActive == false)
+    }
+
+    @Test
+    func leftRightMoveDuringDelayResetsDelay() {
+        let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.1, lockDelayDuration: 0.7, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board = Board(rows: config.rows, columns: config.columns)
+        state.activePiece = FallingPiece(value: 5, position: GridPosition(row: 3, column: 1))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.tick) // start delay
+        engine.send(.tick) // consume some delay
+        #expect(engine.state.lockDelayRemaining < config.lockDelayDuration)
+        engine.send(.moveRight) // still grounded on bottom row, should reset to full
+
+        #expect(engine.state.isLockDelayActive)
+        #expect(engine.state.activePiece?.position == GridPosition(row: 3, column: 2))
+        #expect(abs(engine.state.lockDelayRemaining - config.lockDelayDuration) < 0.000_1)
+    }
+
+    @Test
+    func movingAwayFromGroundCancelsDelay() {
+        let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.1, lockDelayDuration: 0.7, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board = Board(rows: config.rows, columns: config.columns)
+        state.board.setCell(Cell(value: 9), at: GridPosition(row: 2, column: 1))
+        state.activePiece = FallingPiece(value: 5, position: GridPosition(row: 1, column: 1))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.tick) // blocked by cell at row 2, starts delay
+        #expect(engine.state.isLockDelayActive)
+        engine.send(.moveRight) // now below is empty
+
+        #expect(engine.state.isLockDelayActive == false)
+        #expect(engine.state.lockDelayRemaining == 0)
+    }
+
+    @Test
+    func hardDropBypassesDelay() {
+        let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.1, lockDelayDuration: 0.22, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board = Board(rows: config.rows, columns: config.columns)
+        state.activePiece = FallingPiece(value: 5, position: GridPosition(row: 0, column: 1))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.hardDrop)
+
+        #expect(engine.state.board.cell(at: GridPosition(row: 3, column: 1))?.value == 5)
+        #expect(engine.state.isLockDelayActive == false)
+    }
+
+    @Test
+    func softDropIntoGroundedStartsDelay() {
+        let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.1, lockDelayDuration: 0.22, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board = Board(rows: config.rows, columns: config.columns)
+        state.board.setCell(Cell(value: 9), at: GridPosition(row: 2, column: 1))
+        state.activePiece = FallingPiece(value: 5, position: GridPosition(row: 0, column: 1))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.softDrop) // move to row 1, now grounded
+
+        #expect(engine.state.activePiece?.position == GridPosition(row: 1, column: 1))
+        #expect(engine.state.isLockDelayActive)
+        #expect(engine.state.board.cell(at: GridPosition(row: 1, column: 1)) == nil)
+    }
+
+    @Test
+    func detectsHorizontalContiguousTargetSum() {
+        var board = Board(rows: 3, columns: 4)
         board.setCell(Cell(value: 4), at: GridPosition(row: 1, column: 0))
         board.setCell(Cell(value: 6), at: GridPosition(row: 1, column: 1))
-        board.setCell(Cell(value: 3), at: GridPosition(row: 0, column: 1))
-        board.setCell(Cell(value: 7), at: GridPosition(row: 2, column: 1))
+        board.setCell(Cell(value: 2), at: GridPosition(row: 1, column: 2))
 
         let matches = CombinationDetector().findMatchingGroups(on: board, target: 10)
 
@@ -22,24 +236,23 @@ struct FallingNumbersTests {
     }
 
     @Test
-    func findsThreeTileSubsetInsideLargerConnectedComponent() {
+    func detectsVerticalContiguousTargetSum() {
         var board = Board(rows: 3, columns: 4)
-        board.setCell(Cell(value: 2), at: GridPosition(row: 1, column: 1))
+        board.setCell(Cell(value: 2), at: GridPosition(row: 0, column: 2))
         board.setCell(Cell(value: 3), at: GridPosition(row: 1, column: 2))
-        board.setCell(Cell(value: 5), at: GridPosition(row: 1, column: 3))
-        board.setCell(Cell(value: 8), at: GridPosition(row: 0, column: 2))
+        board.setCell(Cell(value: 5), at: GridPosition(row: 2, column: 2))
 
         let matches = CombinationDetector().findMatchingGroups(on: board, target: 10)
 
         #expect(matches.map(groupKey).contains(groupKey([
-            GridPosition(row: 1, column: 1),
+            GridPosition(row: 0, column: 2),
             GridPosition(row: 1, column: 2),
-            GridPosition(row: 1, column: 3)
+            GridPosition(row: 2, column: 2)
         ])))
     }
 
     @Test
-    func doesNotIncludeDiagonalOnlyConnections() {
+    func doesNotDetectDiagonal() {
         var board = Board(rows: 3, columns: 3)
         board.setCell(Cell(value: 4), at: GridPosition(row: 0, column: 0))
         board.setCell(Cell(value: 6), at: GridPosition(row: 1, column: 1))
@@ -50,38 +263,47 @@ struct FallingNumbersTests {
     }
 
     @Test
-    func doesNotReturnDuplicateGroups() {
-        var board = Board(rows: 2, columns: 2)
-        board.setCell(Cell(value: 5), at: GridPosition(row: 0, column: 0))
-        board.setCell(Cell(value: 5), at: GridPosition(row: 0, column: 1))
+    func doesNotDetectLShapeOrCluster() {
+        var board = Board(rows: 3, columns: 3)
+        board.setCell(Cell(value: 4), at: GridPosition(row: 1, column: 1))
+        board.setCell(Cell(value: 3), at: GridPosition(row: 1, column: 2))
+        board.setCell(Cell(value: 3), at: GridPosition(row: 2, column: 1))
 
         let matches = CombinationDetector().findMatchingGroups(on: board, target: 10)
 
-        #expect(matches.count == 1)
-        #expect(groupKey(matches[0]) == groupKey([GridPosition(row: 0, column: 0), GridPosition(row: 0, column: 1)]))
+        #expect(matches.isEmpty)
     }
 
     @Test
-    func multiplePossibleGroupsAreDeterministic() {
-        var board = Board(rows: 3, columns: 4)
-        board.setCell(Cell(value: 4), at: GridPosition(row: 1, column: 0))
-        board.setCell(Cell(value: 6), at: GridPosition(row: 1, column: 1))
-        board.setCell(Cell(value: 3), at: GridPosition(row: 1, column: 2))
-        board.setCell(Cell(value: 7), at: GridPosition(row: 1, column: 3))
+    func doesNotDetectNonContiguousCells() {
+        var board = Board(rows: 1, columns: 4)
+        board.setCell(Cell(value: 4), at: GridPosition(row: 0, column: 0))
+        board.setCell(Cell(value: 6), at: GridPosition(row: 0, column: 2))
 
-        let first = CombinationDetector().findMatchingGroups(on: board, target: 10)
-        let keys = first.map(groupKey)
+        let matches = CombinationDetector().findMatchingGroups(on: board, target: 10)
+        #expect(matches.isEmpty)
+    }
 
-        #expect(keys == keys.sorted())
-        #expect(keys.contains(groupKey([GridPosition(row: 1, column: 0), GridPosition(row: 1, column: 1)])))
-        #expect(keys.contains(groupKey([GridPosition(row: 1, column: 2), GridPosition(row: 1, column: 3)])))
+    @Test
+    func deterministicTieUsesHorizontalBeforeVertical() {
+        let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board.setCell(Cell(value: 6), at: GridPosition(row: 2, column: 0)) // horizontal partner
+        state.board.setCell(Cell(value: 6), at: GridPosition(row: 3, column: 1)) // vertical partner / blocker
+        state.activePiece = FallingPiece(value: 4, position: GridPosition(row: 0, column: 1))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.hardDrop)
+
+        // Horizontal tie should resolve first, leaving the vertical-only 6.
+        #expect(engine.state.board.cell(at: GridPosition(row: 3, column: 1))?.value == 6)
     }
 
     @Test
     func chainReactionWorksAfterGravity() {
         let config = GameConfig(columns: 3, rows: 4, tickInterval: 0.5, baseTargetNumber: 10)
         var state = GameState.initial(config: config)
-        state.totalClearedTiles = 48
+        state.totalClearedTiles = 0
 
         state.board.setCell(Cell(value: 4), at: GridPosition(row: 3, column: 0))
         state.board.setCell(Cell(value: 6), at: GridPosition(row: 3, column: 1))
@@ -92,7 +314,7 @@ struct FallingNumbersTests {
         var engine = GameEngine(state: state, config: config)
         engine.send(.hardDrop)
 
-        #expect(engine.state.totalClearedTiles >= 52)
+        #expect(engine.state.totalClearedTiles >= 4)
         #expect(engine.state.comboCount >= 2)
         #expect(engine.state.board.cell(at: GridPosition(row: 3, column: 2))?.value == 1)
     }
@@ -115,18 +337,182 @@ struct FallingNumbersTests {
         let config = GameConfig(columns: 10, rows: 20, tickInterval: 0.65, baseTargetNumber: 10)
 
         var lowState = GameState.initial(config: config)
-        lowState.totalClearedTiles = 0
+        lowState.score = 0
         let lowEngine = GameEngine(state: lowState, config: config)
 
         var highState = GameState.initial(config: config)
-        highState.totalClearedTiles = 80
+        highState.score = 2600
         let highEngine = GameEngine(state: highState, config: config)
 
         #expect(lowEngine.state.level < highEngine.state.level)
         #expect(lowEngine.state.currentTickInterval > highEngine.state.currentTickInterval)
-        #expect(lowEngine.state.targetNumber != highEngine.state.targetNumber)
-        #expect((5...20).contains(lowEngine.state.targetNumber))
-        #expect((5...20).contains(highEngine.state.targetNumber))
+        #expect(lowEngine.state.targetCycleIndex == highEngine.state.targetCycleIndex)
+        #expect(lowEngine.state.targetNumber == highEngine.state.targetNumber)
+    }
+
+    @Test
+    func levelStartsAtOne() {
+        let engine = GameEngine()
+        #expect(engine.state.level == 1)
+    }
+
+    @Test
+    func levelIncreasesWithScoreCurve() {
+        let levelSystem = LevelSystem()
+        #expect(levelSystem.level(forScore: 0) == 1)
+        #expect(levelSystem.level(forScore: 399) == 1)
+        #expect(levelSystem.level(forScore: 400) == 2)
+        #expect(levelSystem.level(forScore: 1100) >= 3)
+    }
+
+    @Test
+    func levelDoesNotDependOnClearedTilesOnly() {
+        let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.totalClearedTiles = 500
+        state.score = 0
+        let engine = GameEngine(state: state, config: config)
+
+        #expect(engine.state.level == 1)
+    }
+
+    @Test
+    func didLevelChangeFiresOnlyOnThresholdCross() {
+        let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.score = 398
+        state.board.setCell(Cell(value: 4), at: GridPosition(row: 3, column: 1))
+        state.activePiece = FallingPiece(value: 6, position: GridPosition(row: 0, column: 1))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.hardDrop)
+        #expect(engine.state.didLevelChange)
+
+        engine.send(.moveLeft)
+        #expect(engine.state.didLevelChange == false)
+    }
+
+    @Test
+    func targetDoesNotChangeBeforeThirtySeconds() {
+        let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board = Board(rows: config.rows, columns: config.columns)
+        state.activePiece = FallingPiece(value: 3, position: GridPosition(row: 0, column: 1))
+        var engine = GameEngine(state: state, config: config)
+        let ticksBeforeChange = Int((config.targetChangeInterval / config.tickInterval).rounded(.down)) - 1
+        for _ in 0..<ticksBeforeChange {
+            engine.send(.tick)
+        }
+        #expect(engine.state.targetCycleIndex == 0)
+        #expect(engine.state.targetNumber == 10)
+    }
+
+    @Test
+    func targetChangesAfterThirtySecondsAndAgainAfterSixty() {
+        let config = GameConfig(columns: 4, rows: 120, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board = Board(rows: config.rows, columns: config.columns)
+        state.activePiece = FallingPiece(value: 4, position: GridPosition(row: 0, column: 1))
+
+        var engine = GameEngine(state: state, config: config)
+        let ticksPerCycle = Int((config.targetChangeInterval / config.tickInterval).rounded(.up))
+        for _ in 0..<ticksPerCycle { engine.send(.tick) } // expire
+        engine.send(.tick) // apply pending change
+        let first = engine.state.targetNumber
+        #expect(engine.state.targetCycleIndex >= 1)
+
+        for _ in 0..<ticksPerCycle { engine.send(.tick) } // expire again
+        engine.send(.tick) // apply pending change
+        #expect(engine.state.targetCycleIndex >= 2)
+        #expect(engine.state.targetNumber != first || engine.state.targetRepeatCount > 0)
+    }
+
+    @Test
+    func timerResetsAfterTargetChange() {
+        let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board = Board(rows: config.rows, columns: config.columns)
+        state.activePiece = FallingPiece(value: 1, position: GridPosition(row: 0, column: 1))
+        state.targetTimerRemaining = 0.01
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.tick)
+        engine.send(.tick)
+
+        #expect(engine.state.targetCycleIndex == 1)
+        #expect(engine.state.targetTimerRemaining > 0)
+        #expect(engine.state.targetTimerRemaining <= config.targetChangeInterval)
+    }
+
+    @Test
+    func timerPausesWhilePaused() {
+        let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board = Board(rows: config.rows, columns: config.columns)
+        state.activePiece = FallingPiece(value: 5, position: GridPosition(row: 0, column: 1))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.tick)
+        let beforePause = engine.state.targetTimerRemaining
+        engine.send(.togglePause)
+        engine.send(.tick)
+        #expect(engine.state.targetTimerRemaining == beforePause)
+    }
+
+    @Test
+    func timerDoesNotRunDuringGameOver() {
+        let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.isGameOver = true
+        state.targetTimerRemaining = 5
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.tick)
+        #expect(engine.state.targetTimerRemaining == 5)
+    }
+
+    @Test
+    func didLevelChangeAndDidTargetChangeAreIndependent() {
+        let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.65, baseTargetNumber: 10)
+        var levelState = GameState.initial(config: config)
+        levelState.score = 399
+        levelState.board = Board(rows: config.rows, columns: config.columns)
+        levelState.board.setCell(Cell(value: 4), at: GridPosition(row: 3, column: 1))
+        levelState.activePiece = FallingPiece(value: 6, position: GridPosition(row: 0, column: 1))
+        var levelEngine = GameEngine(state: levelState, config: config)
+        levelEngine.send(.hardDrop)
+        #expect(levelEngine.state.didLevelChange)
+        #expect(levelEngine.state.didTargetChange == false)
+
+        var targetState = GameState.initial(config: config)
+        targetState.board = Board(rows: config.rows, columns: config.columns)
+        targetState.activePiece = FallingPiece(value: 5, position: GridPosition(row: 0, column: 1))
+        targetState.targetTimerRemaining = 0.01
+        var targetEngine = GameEngine(state: targetState, config: config)
+        targetEngine.send(.tick)
+        targetEngine.send(.tick)
+        #expect(targetEngine.state.didTargetChange)
+    }
+
+    @Test
+    func targetDoesNotChangeDuringResolveOnlyAfterSafeBoundary() {
+        let config = GameConfig(columns: 3, rows: 4, tickInterval: 0.5, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board = Board(rows: config.rows, columns: config.columns)
+        state.targetTimerRemaining = 0.01
+        state.board.setCell(Cell(value: 4), at: GridPosition(row: 3, column: 0))
+        state.board.setCell(Cell(value: 6), at: GridPosition(row: 3, column: 1))
+        state.activePiece = FallingPiece(value: 1, position: GridPosition(row: 0, column: 2))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.hardDrop)
+
+        // Hard drop path triggers resolve first, target change only on safe boundary after spawn.
+        #expect(engine.state.targetCycleIndex == 0)
+        let before = engine.state.targetNumber
+        engine.send(.tick)
+        engine.send(.tick)
+        #expect(engine.state.targetCycleIndex == 1)
+        #expect(engine.state.targetNumber != before || engine.state.targetRepeatCount > 0)
     }
 
     @Test
@@ -268,38 +654,76 @@ struct FallingNumbersTests {
     }
 
     @Test
-    func deterministicClearOrderingUsesLargestGroupFirst() {
+    func deterministicClearOrderingUsesLongerLineFirst() {
         let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.65, baseTargetNumber: 10)
         var state = GameState.initial(config: config)
-        state.totalClearedTiles = 48
+        state.totalClearedTiles = 0
 
-        // Two valid groups share one tile:
-        // Large group: (0,0)=4 + (0,1)=2 + (1,1)=4
-        // Small group: (0,0)=4 + (1,0)=6
-        state.board.setCell(Cell(value: 4), at: GridPosition(row: 0, column: 0))
-        state.board.setCell(Cell(value: 2), at: GridPosition(row: 0, column: 1))
-        state.board.setCell(Cell(value: 4), at: GridPosition(row: 1, column: 1))
-        state.board.setCell(Cell(value: 6), at: GridPosition(row: 1, column: 0))
+        // Longer line: row 3 => 2+3+5
+        state.board.setCell(Cell(value: 2), at: GridPosition(row: 3, column: 0))
+        state.board.setCell(Cell(value: 3), at: GridPosition(row: 3, column: 1))
+        state.board.setCell(Cell(value: 5), at: GridPosition(row: 3, column: 2))
+        // Shorter line: row 2 => 4+6
+        state.board.setCell(Cell(value: 4), at: GridPosition(row: 2, column: 0))
+        state.board.setCell(Cell(value: 6), at: GridPosition(row: 2, column: 1))
         state.activePiece = FallingPiece(value: 1, position: GridPosition(row: 0, column: 3))
 
         var engine = GameEngine(state: state, config: config)
         engine.send(.hardDrop)
 
-        // If largest-group-first is used, the remaining board includes value 6
-        // rather than preserving the 2+4 pair.
-        let remainingValues = (0..<config.rows).flatMap { row in
-            (0..<config.columns).compactMap { col in
-                engine.state.board.cell(at: GridPosition(row: row, column: col))?.value
-            }
-        }
-        #expect(remainingValues.contains(6))
+        // Drop score 6 + clears ordered as 3-tile then 2-tile => 70 clear points.
+        #expect(engine.state.score == 76)
+    }
+
+    @Test
+    func prefersGroupContainingLockedTileOverLargerUnrelatedGroup() {
+        let config = GameConfig(columns: 5, rows: 5, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.totalClearedTiles = 0
+
+        // Unrelated longer line (size 3), does not include locked tile:
+        // row 3 => 2 + 2 + 6
+        state.board.setCell(Cell(value: 2), at: GridPosition(row: 3, column: 1))
+        state.board.setCell(Cell(value: 2), at: GridPosition(row: 3, column: 2))
+        state.board.setCell(Cell(value: 6), at: GridPosition(row: 3, column: 3))
+
+        // Locked-tile line (size 2): vertical => dropped 4 at (2,3) + existing 6 at (3,3)
+        state.activePiece = FallingPiece(value: 4, position: GridPosition(row: 0, column: 3))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.hardDrop)
+
+        // If locked-tile match is preferred first, unrelated line is broken and cells remain.
+        #expect(engine.state.board.cell(at: GridPosition(row: 4, column: 1))?.value == 2)
+        #expect(engine.state.board.cell(at: GridPosition(row: 4, column: 2))?.value == 2)
+    }
+
+    @Test
+    func lockedTileTieUsesDeterministicLexicographicTiebreak() {
+        let config = GameConfig(columns: 5, rows: 5, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.totalClearedTiles = 0
+
+        // Two equal-size lines that both include the locked tile at (4,2):
+        // A: (4,1)=6 + locked(4,2)=4  -> key starts with 4:1
+        // B: locked(4,2)=4 + (4,3)=6  -> key starts with 4:2
+        // Deterministic tie should choose A first.
+        state.board.setCell(Cell(value: 6), at: GridPosition(row: 4, column: 1))
+        state.board.setCell(Cell(value: 6), at: GridPosition(row: 4, column: 3))
+        state.activePiece = FallingPiece(value: 4, position: GridPosition(row: 0, column: 2))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.hardDrop)
+
+        #expect(engine.state.board.cell(at: GridPosition(row: 4, column: 1)) == nil)
+        #expect(engine.state.board.cell(at: GridPosition(row: 4, column: 3))?.value == 6)
     }
 
     @Test
     func comboProgressionIncreasesAcrossChain() {
         let config = GameConfig(columns: 3, rows: 4, tickInterval: 0.5, baseTargetNumber: 10)
         var state = GameState.initial(config: config)
-        state.totalClearedTiles = 48
+        state.totalClearedTiles = 0
         state.board.setCell(Cell(value: 4), at: GridPosition(row: 3, column: 0))
         state.board.setCell(Cell(value: 6), at: GridPosition(row: 3, column: 1))
         state.board.setCell(Cell(value: 3), at: GridPosition(row: 2, column: 0))
@@ -310,7 +734,7 @@ struct FallingNumbersTests {
         engine.send(.hardDrop)
 
         #expect(engine.state.comboCount >= 2)
-        #expect(engine.state.totalClearedTiles >= 52)
+        #expect(engine.state.totalClearedTiles >= 4)
     }
 
     @Test
