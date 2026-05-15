@@ -58,6 +58,8 @@ struct GameEngine {
     mutating func send(_ action: GameAction) {
         state.didLevelChange = false
         state.didTargetChange = false
+        state.didPerfectClear = false
+        state.lastPerfectClearBonus = 0
 
         switch action {
         case .newGame:
@@ -246,6 +248,7 @@ struct GameEngine {
     private mutating func resolveBoard(preferredOrigin: GridPosition?) {
         var combo = 0
         var originForCurrentPass = preferredOrigin
+        var workingCascade = state.cascadeCount
 
         while true {
             GameDebugLogger.logBoard(state.board, title: "board before detection")
@@ -274,6 +277,12 @@ struct GameEngine {
             }
 
             combo += 1
+            if combo == 1 {
+                workingCascade = max(1, workingCascade)
+            }
+            if combo > 1 {
+                workingCascade += 1
+            }
             // Deterministic line-clear resolution:
             // first pass prefers lines containing the just-locked tile.
             // Tie-break remains stable by longer line, then horizontal, then lexicographic key.
@@ -288,7 +297,21 @@ struct GameEngine {
 
             let clearedCount = selectedGroup.count
             state.totalClearedTiles += clearedCount
-            state.score += scoreSystem.pointsForClear(tileCount: clearedCount, combo: combo)
+            let effectiveCascade = max(1, workingCascade)
+            let scoreBreakdown = scoreSystem.scoreBreakdownForClear(tileCount: clearedCount, cascade: effectiveCascade)
+            state.score += scoreBreakdown.awardedScore
+            state.lastClearLength = scoreBreakdown.lineLength
+            state.lastClearLengthMultiplier = scoreBreakdown.lengthMultiplier
+            state.specialSpawnChance = scoreSystem.specialSpawnChance(for: effectiveCascade)
+            GameDebugLogger.logScoreBreakdown(
+                cascade: effectiveCascade,
+                lineLength: scoreBreakdown.lineLength,
+                baseScore: scoreBreakdown.baseScore,
+                lengthMultiplier: scoreBreakdown.lengthMultiplier,
+                cascadeMultiplier: scoreBreakdown.cascadeMultiplier,
+                specialSpawnChance: state.specialSpawnChance,
+                awarded: scoreBreakdown.awardedScore
+            )
 
             gravitySystem.collapse(board: &state.board)
             GameDebugLogger.logBoard(state.board, title: "board after gravity")
@@ -298,12 +321,39 @@ struct GameEngine {
                 pass: combo,
                 selected: selectedGroup,
                 scoreGained: scoreGained,
-                combo: combo,
+                cascade: effectiveCascade,
                 continued: stillHasMatches
             )
         }
 
-        state.comboCount = combo
+        if combo > 0, boardIsEmpty() {
+            let bonus = scoreSystem.perfectClearBonus(
+                level: state.level,
+                base: config.perfectClearBonusBase,
+                perLevel: config.perfectClearBonusPerLevel
+            )
+            state.score += bonus
+            state.didPerfectClear = true
+            state.lastPerfectClearBonus = bonus
+            workingCascade = min(workingCascade + 1, 5)
+            state.specialSpawnChance = scoreSystem.specialSpawnChance(for: workingCascade)
+            GameDebugLogger.logPerfectClear(
+                bonus: bonus,
+                cascade: workingCascade,
+                specialSpawnChance: state.specialSpawnChance
+            )
+        }
+
+        if combo > 0 {
+            state.cascadeCount = workingCascade
+            state.movesWithoutClear = 0
+        } else {
+            state.movesWithoutClear += 1
+            if state.movesWithoutClear >= 3 {
+                state.cascadeCount = 0
+            }
+            state.specialSpawnChance = scoreSystem.specialSpawnChance(for: max(1, state.cascadeCount))
+        }
         updateProgressionState()
         applyPendingTargetChangeIfSafe()
     }
@@ -463,5 +513,9 @@ struct GameEngine {
         }
 
         return false
+    }
+
+    private func boardIsEmpty() -> Bool {
+        state.board.cells.allSatisfy { $0 == nil }
     }
 }

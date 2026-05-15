@@ -13,11 +13,17 @@ struct GameState {
     var totalClearedTiles: Int
     var targetTimerRemaining: TimeInterval
     var targetCycleIndex: Int
-    var comboCount: Int
+    var cascadeCount: Int
+    var movesWithoutClear: Int
+    var specialSpawnChance: Double
+    var lastClearLength: Int
+    var lastClearLengthMultiplier: Double
     var targetNumber: Int
     var targetRepeatCount: Int
     var didLevelChange: Bool
     var didTargetChange: Bool
+    var didPerfectClear: Bool
+    var lastPerfectClearBonus: Int
     var currentTickInterval: TimeInterval
     var isGameOver: Bool
     var isPaused: Bool
@@ -36,11 +42,17 @@ struct GameState {
             totalClearedTiles: 0,
             targetTimerRemaining: config.targetChangeInterval,
             targetCycleIndex: 0,
-            comboCount: 0,
+            cascadeCount: 0,
+            movesWithoutClear: 0,
+            specialSpawnChance: 0.02,
+            lastClearLength: 0,
+            lastClearLengthMultiplier: 1.0,
             targetNumber: config.baseTargetNumber,
             targetRepeatCount: 0,
             didLevelChange: false,
             didTargetChange: false,
+            didPerfectClear: false,
+            lastPerfectClearBonus: 0,
             currentTickInterval: config.tickInterval,
             isGameOver: false,
             isPaused: false

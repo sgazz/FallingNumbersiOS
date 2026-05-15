@@ -13,6 +13,7 @@ final class GameScreenViewModel: ObservableObject {
     @Published private(set) var boardShakeToken: Int = 0
     @Published private(set) var comboPulseToken: Int = 0
     @Published private(set) var targetPulseToken: Int = 0
+    @Published private(set) var perfectClearToken: Int = 0
     @Published private(set) var settings: AppSettings
 #if DEBUG
     @Published var diagnosticsEnabled = false
@@ -189,15 +190,19 @@ final class GameScreenViewModel: ObservableObject {
                 if settings.isHapticsEnabled { haptics.pieceLocked() }
                 if settings.isSoundEnabled { audio.trigger(.lock) }
             }
-            if state.comboCount > previous.comboCount, state.comboCount > 0 {
-                if settings.isHapticsEnabled { haptics.cleared(combo: state.comboCount) }
-                if settings.isSoundEnabled { audio.trigger(.clear(combo: state.comboCount)) }
+            if state.cascadeCount > previous.cascadeCount, state.cascadeCount > 0 {
+                if settings.isHapticsEnabled { haptics.cleared(combo: state.cascadeCount) }
+                if settings.isSoundEnabled { audio.trigger(.clear(combo: state.cascadeCount)) }
                 comboPulseToken &+= 1
                 targetPulseToken &+= 1
             }
             if !previous.isGameOver, state.isGameOver {
                 if settings.isHapticsEnabled { haptics.gameOver() }
                 if settings.isSoundEnabled { audio.trigger(.gameOver) }
+            }
+            if state.didPerfectClear {
+                if settings.isHapticsEnabled { haptics.perfectClear() }
+                perfectClearToken &+= 1
             }
         }
 

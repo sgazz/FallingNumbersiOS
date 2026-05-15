@@ -7,6 +7,7 @@ final class BoardNode: SKNode {
     private var cellSize: CGFloat = 0
     private var boardSize: CGSize = .zero
     private var previousActivePositions: Set<GridPosition> = []
+    private var previousBoardValues: [GridPosition: Int] = [:]
     private var lastGeometryKey: String?
 
     override init() {
@@ -40,24 +41,63 @@ final class BoardNode: SKNode {
             lastGeometryKey = geometryKey
         }
 
-        let occupied = Set(state.board.allOccupiedPositions())
+        let occupiedPositions = state.board.allOccupiedPositions()
+        let occupied = Set(occupiedPositions)
+        var currentBoardValues: [GridPosition: Int] = [:]
+        currentBoardValues.reserveCapacity(occupiedPositions.count)
+        for position in occupiedPositions {
+            if let value = state.board.cell(at: position)?.value {
+                currentBoardValues[position] = value
+            }
+        }
+
+        let movedPairs = detectColumnGravityMoves(from: previousBoardValues, to: currentBoardValues, columns: state.board.columns)
+        for (from, to) in movedPairs {
+            guard let node = tileNodes[from], tileNodes[to] == nil else { continue }
+            tileNodes.removeValue(forKey: from)
+            tileNodes[to] = node
+            node.removeAction(forKey: "move")
+            let dropDistance = abs(CGFloat(to.row - from.row)) * cellSize
+            let duration = max(0.08, min(0.12, Double(dropDistance / max(1, cellSize)) * 0.04))
+            node.run(
+                SKAction.move(to: pointFor(position: to), duration: duration).withTimingMode(.easeOut),
+                withKey: "move"
+            )
+        }
+
         var needed = occupied
         if let active = state.activePiece {
             needed.insert(active.position)
         }
         let activePosition = state.activePiece?.position
+        let previousActive = previousActivePositions.first
+
+        // Keep one active tile node alive while it moves across cells.
+        // This prevents the old cell node from fade-out trailing behind the active piece.
+        if let previousActive,
+           let activePosition,
+           previousActive != activePosition,
+           tileNodes[activePosition] == nil,
+           state.board.cell(at: previousActive) == nil,
+           let activeNode = tileNodes[previousActive] {
+            tileNodes.removeValue(forKey: previousActive)
+            tileNodes[activePosition] = activeNode
+        }
 
         for (position, node) in tileNodes where !needed.contains(position) {
             tileNodes.removeValue(forKey: position)
-            node.run(
-                SKAction.sequence([
-                    SKAction.group([
-                        SKAction.fadeOut(withDuration: 0.09),
-                        SKAction.scale(to: 0.78, duration: 0.09)
-                    ]),
-                    SKAction.removeFromParent()
-                ])
-            )
+            // Clear feedback: short warm pulse + scale up + fade out.
+            node.run(SKAction.sequence([
+                SKAction.group([
+                    SKAction.scale(to: 1.06, duration: 0.08),
+                    SKAction.fadeAlpha(to: 1.0, duration: 0.06)
+                ]),
+                SKAction.group([
+                    SKAction.scale(to: 0.86, duration: 0.13),
+                    SKAction.fadeOut(withDuration: 0.13)
+                ]),
+                SKAction.removeFromParent()
+            ]))
         }
 
         for position in needed {
@@ -79,12 +119,29 @@ final class BoardNode: SKNode {
                 node.update(value: value, size: cellSize * 0.92, isActive: isActive)
                 if node.position != point {
                     node.removeAction(forKey: "move")
-                    node.run(SKAction.move(to: point, duration: 0.07), withKey: "move")
+                    let distanceCells = max(1, Int(ceil(hypot(node.position.x - point.x, node.position.y - point.y) / max(1, cellSize))))
+                    let duration: TimeInterval
+                    if isActive {
+                        duration = distanceCells >= 3 ? 0.06 : max(0.05, min(0.08, 0.045 + Double(distanceCells) * 0.015))
+                    } else {
+                        duration = max(0.08, min(0.12, 0.07 + Double(distanceCells) * 0.015))
+                    }
+                    // Snap when target is almost reached to avoid micro-drift blur.
+                    if hypot(node.position.x - point.x, node.position.y - point.y) < cellSize * 0.12 {
+                        node.position = point
+                    } else {
+                        node.run(
+                            SKAction.move(to: point, duration: duration).withTimingMode(.easeOut),
+                            withKey: "move"
+                        )
+                    }
                 }
                 if wasActive, !isActive {
+                    // Lock feedback: tiny settle animation, no board shake.
                     node.run(SKAction.sequence([
-                        SKAction.scale(to: 1.05, duration: 0.05),
-                        SKAction.scale(to: 1.0, duration: 0.07)
+                        SKAction.scale(to: 0.97, duration: 0.05),
+                        SKAction.scale(to: 1.02, duration: 0.06),
+                        SKAction.scale(to: 1.0, duration: 0.04)
                     ]))
                 }
             } else {
@@ -96,8 +153,8 @@ final class BoardNode: SKNode {
                 tileNodes[position] = node
                 node.run(
                     SKAction.group([
-                        SKAction.fadeIn(withDuration: 0.08),
-                        SKAction.scale(to: isActive ? 1.04 : 1.0, duration: 0.08)
+                        SKAction.fadeIn(withDuration: 0.09),
+                        SKAction.scale(to: isActive ? 1.03 : 1.0, duration: 0.09)
                     ])
                 )
             }
@@ -108,7 +165,14 @@ final class BoardNode: SKNode {
         } else {
             previousActivePositions.removeAll()
         }
+        previousBoardValues = currentBoardValues
     }
+
+    // Power-up animation hooks for v1 integration points.
+    // They are intentionally lightweight and can be invoked by future visual event payloads.
+    func playRowClearSweep(row: Int) {}
+    func playColumnClearSweep(column: Int) {}
+    func playReorderHint() {}
 
     private func drawBoardBackground() {
         let rect = CGRect(
@@ -163,5 +227,52 @@ final class BoardNode: SKNode {
             x: originX + CGFloat(position.column) * cellSize,
             y: originY - CGFloat(position.row) * cellSize
         )
+    }
+
+    private func detectColumnGravityMoves(
+        from old: [GridPosition: Int],
+        to new: [GridPosition: Int],
+        columns: Int
+    ) -> [(from: GridPosition, to: GridPosition)] {
+        guard !old.isEmpty, !new.isEmpty else { return [] }
+        var results: [(from: GridPosition, to: GridPosition)] = []
+
+        for column in 0..<columns {
+            let oldColumn = old
+                .filter { $0.key.column == column }
+                .map { ($0.key.row, $0.value) }
+                .sorted { $0.0 < $1.0 }
+            let newColumn = new
+                .filter { $0.key.column == column }
+                .map { ($0.key.row, $0.value) }
+                .sorted { $0.0 < $1.0 }
+
+            if oldColumn.isEmpty || newColumn.isEmpty { continue }
+
+            var usedOld: Set<Int> = []
+            for (newRow, newValue) in newColumn {
+                if let stationary = old[GridPosition(row: newRow, column: column)], stationary == newValue {
+                    continue
+                }
+                if let oldMatch = oldColumn.first(where: { pair in
+                    !usedOld.contains(pair.0) && pair.1 == newValue && pair.0 < newRow
+                }) {
+                    usedOld.insert(oldMatch.0)
+                    results.append((
+                        from: GridPosition(row: oldMatch.0, column: column),
+                        to: GridPosition(row: newRow, column: column)
+                    ))
+                }
+            }
+        }
+
+        return results
+    }
+}
+
+private extension SKAction {
+    func withTimingMode(_ mode: SKActionTimingMode) -> SKAction {
+        timingMode = mode
+        return self
     }
 }

@@ -12,6 +12,9 @@ final class TileNode: SKNode {
     private let shapeNode = SKShapeNode()
     private let labelShadowNode = SKLabelNode(fontNamed: "AvenirNext-Bold")
     private let labelNode = SKLabelNode(fontNamed: "AvenirNext-Bold")
+    private var cachedValue: Int?
+    private var cachedSize: CGFloat = 0
+    private var cachedIsActive: Bool = false
 
     init(value: Int, size: CGFloat, isActive: Bool) {
         super.init()
@@ -39,6 +42,16 @@ final class TileNode: SKNode {
     }
 
     func update(value: Int, size: CGFloat, isActive: Bool) {
+        let valueChanged = cachedValue != value
+        let sizeChanged = abs(cachedSize - size) > 0.001
+        let activeChanged = cachedIsActive != isActive
+
+        guard valueChanged || sizeChanged || activeChanged else { return }
+
+        cachedValue = value
+        cachedSize = size
+        cachedIsActive = isActive
+
         let rect = CGRect(x: -size / 2, y: -size / 2, width: size, height: size)
         let roundedPath = CGPath(
             roundedRect: rect,
@@ -56,14 +69,18 @@ final class TileNode: SKNode {
         shapeNode.fillColor = NeonTheme.tileColor(for: value)
         shapeNode.strokeColor = NeonTheme.tileStroke
         shapeNode.lineWidth = max(1.2, size * 0.036)
-        shapeNode.glowWidth = isActive ? size * 0.07 : size * 0.035
+        shapeNode.glowWidth = isActive ? size * 0.045 : size * 0.03
 
-        if isActive {
-            shapeNode.alpha = 1.0
-            run(SKAction.scale(to: 1.04, duration: 0.06), withKey: "activeScale")
+        if activeChanged {
+            if isActive {
+                shapeNode.alpha = 1.0
+                run(SKAction.scale(to: 1.035, duration: 0.08), withKey: "activeScale")
+            } else {
+                shapeNode.alpha = 0.94
+                run(SKAction.scale(to: 1.0, duration: 0.08), withKey: "activeScale")
+            }
         } else {
-            shapeNode.alpha = 0.94
-            run(SKAction.scale(to: 1.0, duration: 0.06), withKey: "activeScale")
+            shapeNode.alpha = isActive ? 1.0 : 0.94
         }
 
         let labelSize = size * (isActive ? 0.72 : 0.68)

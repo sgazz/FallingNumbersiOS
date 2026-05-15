@@ -314,7 +314,7 @@ struct FallingNumbersTests {
         engine.send(.hardDrop)
 
         #expect(engine.state.totalClearedTiles >= 4)
-        #expect(engine.state.comboCount >= 2)
+        #expect(engine.state.cascadeCount >= 2)
         #expect(engine.state.board.cell(at: GridPosition(row: 3, column: 0)) == nil)
         #expect(engine.state.board.cell(at: GridPosition(row: 3, column: 1)) == nil)
     }
@@ -354,6 +354,111 @@ struct FallingNumbersTests {
     func levelStartsAtOne() {
         let engine = GameEngine()
         #expect(engine.state.level == 1)
+    }
+
+    @Test
+    func lengthTwoScoreUsesX1Multiplier() {
+        let scoreSystem = ScoreSystem()
+        let breakdown = scoreSystem.scoreBreakdownForClear(tileCount: 2, cascade: 1)
+        #expect(breakdown.baseScore == 20)
+        #expect(breakdown.lengthMultiplier == 1.0)
+        #expect(breakdown.awardedScore == 20)
+    }
+
+    @Test
+    func lengthThreeScoreUsesX125Multiplier() {
+        let scoreSystem = ScoreSystem()
+        let breakdown = scoreSystem.scoreBreakdownForClear(tileCount: 3, cascade: 1)
+        #expect(breakdown.baseScore == 30)
+        #expect(breakdown.lengthMultiplier == 1.25)
+        #expect(breakdown.awardedScore == 38)
+    }
+
+    @Test
+    func lengthFiveScoreUsesX2Multiplier() {
+        let scoreSystem = ScoreSystem()
+        let breakdown = scoreSystem.scoreBreakdownForClear(tileCount: 5, cascade: 1)
+        #expect(breakdown.baseScore == 50)
+        #expect(breakdown.lengthMultiplier == 2.0)
+        #expect(breakdown.awardedScore == 100)
+    }
+
+    @Test
+    func cascadeAndLengthMultiplierInteraction() {
+        let scoreSystem = ScoreSystem()
+        let breakdown = scoreSystem.scoreBreakdownForClear(tileCount: 4, cascade: 3)
+        #expect(breakdown.baseScore == 40)
+        #expect(breakdown.lengthMultiplier == 1.5)
+        #expect(breakdown.cascadeMultiplier == 1.5)
+        #expect(breakdown.awardedScore == 90)
+    }
+
+    @Test
+    func perfectClearBonusUsesConfiguredFormula() {
+        let scoreSystem = ScoreSystem()
+        #expect(scoreSystem.perfectClearBonus(level: 1, base: 500, perLevel: 250) == 750)
+        #expect(scoreSystem.perfectClearBonus(level: 4, base: 500, perLevel: 250) == 1500)
+    }
+
+    @Test
+    func specialSpawnChanceScalesWithCascade() {
+        let scoreSystem = ScoreSystem()
+        #expect(scoreSystem.specialSpawnChance(for: 1) == 0.02)
+        #expect(scoreSystem.specialSpawnChance(for: 2) == 0.05)
+        #expect(scoreSystem.specialSpawnChance(for: 3) == 0.08)
+        #expect(scoreSystem.specialSpawnChance(for: 5) == 0.12)
+    }
+
+    @Test
+    func cascadeResetsAfterSeveralLocksWithoutClear() {
+        let config = GameConfig(columns: 4, rows: 5, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.cascadeCount = 3
+        state.specialSpawnChance = 0.12
+        state.board = Board(rows: config.rows, columns: config.columns)
+        state.activePiece = FallingPiece(value: 1, position: GridPosition(row: 0, column: 0))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.hardDrop)
+        engine.send(.hardDrop)
+        engine.send(.hardDrop)
+
+        #expect(engine.state.cascadeCount == 0)
+        #expect(engine.state.specialSpawnChance == 0.02)
+    }
+
+    @Test
+    func perfectClearTriggersAndAwardsBonus() {
+        let config = GameConfig(columns: 4, rows: 5, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board = Board(rows: config.rows, columns: config.columns)
+        state.board.setCell(Cell(value: 6), at: GridPosition(row: 4, column: 1))
+        state.activePiece = FallingPiece(value: 4, position: GridPosition(row: 0, column: 2))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.hardDrop)
+
+        #expect(engine.state.didPerfectClear)
+        #expect(engine.state.lastPerfectClearBonus == 750)
+        #expect(engine.state.board.allOccupiedPositions().isEmpty)
+        #expect(engine.state.score == 778)
+    }
+
+    @Test
+    func perfectClearDoesNotTriggerWhenBoardStillHasTiles() {
+        let config = GameConfig(columns: 4, rows: 5, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board = Board(rows: config.rows, columns: config.columns)
+        state.board.setCell(Cell(value: 6), at: GridPosition(row: 4, column: 1))
+        state.board.setCell(Cell(value: 9), at: GridPosition(row: 4, column: 3))
+        state.activePiece = FallingPiece(value: 4, position: GridPosition(row: 0, column: 2))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.hardDrop)
+
+        #expect(engine.state.didPerfectClear == false)
+        #expect(engine.state.lastPerfectClearBonus == 0)
+        #expect(engine.state.board.cell(at: GridPosition(row: 4, column: 3))?.value == 9)
     }
 
     @Test
@@ -784,7 +889,7 @@ struct FallingNumbersTests {
         var engine = GameEngine(state: state, config: config)
         engine.send(.hardDrop)
 
-        #expect(engine.state.comboCount >= 2)
+        #expect(engine.state.cascadeCount >= 2)
         #expect(engine.state.totalClearedTiles >= 4)
     }
 
@@ -887,7 +992,7 @@ struct FallingNumbersTests {
         engine.send(.newGame)
 
         #expect(engine.state.score == 0)
-        #expect(engine.state.comboCount == 0)
+        #expect(engine.state.cascadeCount == 0)
         #expect(engine.state.totalClearedTiles == 0)
         #expect(!engine.state.isGameOver)
         #expect(!engine.state.isPaused)
