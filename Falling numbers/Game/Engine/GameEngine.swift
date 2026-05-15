@@ -282,6 +282,7 @@ struct GameEngine {
             }
             if combo > 1 {
                 workingCascade += 1
+                GameDebugLogger.logCascade(step: combo)
             }
             // Deterministic line-clear resolution:
             // first pass prefers lines containing the just-locked tile.
@@ -290,6 +291,8 @@ struct GameEngine {
             originForCurrentPass = nil
 
             let scoreBefore = state.score
+            let selectedValues = selectedGroup.compactMap { state.board.cell(at: $0)?.value }
+            let direction: MatchDirection = isHorizontal(selectedGroup) ? .horizontal : .vertical
             for position in selectedGroup {
                 state.board.setCell(nil, at: position)
             }
@@ -298,7 +301,11 @@ struct GameEngine {
             let clearedCount = selectedGroup.count
             state.totalClearedTiles += clearedCount
             let effectiveCascade = max(1, workingCascade)
-            let scoreBreakdown = scoreSystem.scoreBreakdownForClear(tileCount: clearedCount, cascade: effectiveCascade)
+            let scoreBreakdown = scoreSystem.scoreBreakdownForClear(
+                tileCount: clearedCount,
+                cascade: effectiveCascade,
+                isHorizontal: direction == .horizontal
+            )
             state.score += scoreBreakdown.awardedScore
             state.lastClearLength = scoreBreakdown.lineLength
             state.lastClearLengthMultiplier = scoreBreakdown.lengthMultiplier
@@ -316,13 +323,14 @@ struct GameEngine {
             gravitySystem.collapse(board: &state.board)
             GameDebugLogger.logBoard(state.board, title: "board after gravity")
             let scoreGained = state.score - scoreBefore
-            let stillHasMatches = boardHasAnyLineMatch(target: state.targetNumber)
-            GameDebugLogger.logResolvePass(
-                pass: combo,
-                selected: selectedGroup,
-                scoreGained: scoreGained,
+            GameDebugLogger.logMatch(
+                direction: direction,
+                positions: selectedGroup,
+                values: selectedValues,
+                target: state.targetNumber,
+                removed: clearedCount,
                 cascade: effectiveCascade,
-                continued: stillHasMatches
+                score: scoreGained
             )
         }
 
@@ -414,6 +422,14 @@ struct GameEngine {
         state.activePiece = piece
         state.lastLockedPosition = nil
         GameDebugLogger.logPieceSpawn(value: piece.value, position: piece.position)
+        let occupied = state.board.allOccupiedPositions().count
+        let capacity = max(1, state.board.rows * state.board.columns)
+        let occupancyPercent = Int((Double(occupied) / Double(capacity) * 100.0).rounded())
+        GameDebugLogger.logState(
+            target: state.targetNumber,
+            spawnColumn: piece.position.column,
+            occupancyPercent: occupancyPercent
+        )
         cancelLockDelay()
         state.nextPieceValue = spawnSystem.nextValue(level: state.level)
     }

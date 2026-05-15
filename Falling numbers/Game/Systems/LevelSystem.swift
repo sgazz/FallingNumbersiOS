@@ -57,7 +57,7 @@ struct LevelSystem {
         candidate = min(range.upperBound, max(range.lowerBound, candidate))
 
         if candidate == previousTarget {
-            if repeatCount >= 2 {
+            if repeatCount >= 1 {
                 candidate += 1
                 if candidate > range.upperBound {
                     candidate = range.lowerBound

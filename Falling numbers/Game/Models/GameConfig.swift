@@ -19,8 +19,8 @@ struct GameConfig {
         targetChangeInterval: TimeInterval = 30.0,
         baseTargetNumber: Int,
         startingLayoutSeed: Int = 1,
-        perfectClearBonusBase: Int = 500,
-        perfectClearBonusPerLevel: Int = 250
+        perfectClearBonusBase: Int = 250,
+        perfectClearBonusPerLevel: Int = 100
     ) {
         self.columns = columns
         self.rows = rows
@@ -41,7 +41,7 @@ struct GameConfig {
         targetChangeInterval: 30.0,
         baseTargetNumber: 10,
         startingLayoutSeed: 1,
-        perfectClearBonusBase: 500,
-        perfectClearBonusPerLevel: 250
+        perfectClearBonusBase: 250,
+        perfectClearBonusPerLevel: 100
     )
 }

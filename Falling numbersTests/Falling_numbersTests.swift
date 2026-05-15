@@ -366,6 +366,16 @@ struct FallingNumbersTests {
     }
 
     @Test
+    func horizontalClearGetsSlightScoreBonus() {
+        let scoreSystem = ScoreSystem()
+        let horizontal = scoreSystem.scoreBreakdownForClear(tileCount: 3, cascade: 1, isHorizontal: true)
+        let vertical = scoreSystem.scoreBreakdownForClear(tileCount: 3, cascade: 1, isHorizontal: false)
+        #expect(horizontal.awardedScore > vertical.awardedScore)
+        #expect(horizontal.awardedScore == 41)
+        #expect(vertical.awardedScore == 38)
+    }
+
+    @Test
     func lengthThreeScoreUsesX125Multiplier() {
         let scoreSystem = ScoreSystem()
         let breakdown = scoreSystem.scoreBreakdownForClear(tileCount: 3, cascade: 1)
@@ -396,8 +406,8 @@ struct FallingNumbersTests {
     @Test
     func perfectClearBonusUsesConfiguredFormula() {
         let scoreSystem = ScoreSystem()
-        #expect(scoreSystem.perfectClearBonus(level: 1, base: 500, perLevel: 250) == 750)
-        #expect(scoreSystem.perfectClearBonus(level: 4, base: 500, perLevel: 250) == 1500)
+        #expect(scoreSystem.perfectClearBonus(level: 1, base: 250, perLevel: 100) == 350)
+        #expect(scoreSystem.perfectClearBonus(level: 4, base: 250, perLevel: 100) == 650)
     }
 
     @Test
@@ -439,9 +449,37 @@ struct FallingNumbersTests {
         engine.send(.hardDrop)
 
         #expect(engine.state.didPerfectClear)
-        #expect(engine.state.lastPerfectClearBonus == 750)
+        #expect(engine.state.lastPerfectClearBonus == 350)
         #expect(engine.state.board.allOccupiedPositions().isEmpty)
-        #expect(engine.state.score == 778)
+        #expect(engine.state.score == 380)
+    }
+
+    @Test
+    func spawnDistributionUsesMultipleColumnsNotOnlyCenter() {
+        let spawnSystem = SpawnSystem()
+        var counts = Array(repeating: 0, count: 10)
+        for _ in 0..<5_000 {
+            let column = spawnSystem.nextSpawnColumn(columns: 10)
+            counts[column] += 1
+        }
+
+        // Center is still favored but should not dominate.
+        #expect(counts[5] < 1_400)
+        // Mid columns should appear regularly.
+        for column in 2...7 {
+            #expect(counts[column] > 350)
+        }
+    }
+
+    @Test
+    func spawnFallsBackWhenPreferredCenterBlocked() {
+        let spawnSystem = SpawnSystem()
+        var board = Board(rows: 6, columns: 10)
+        board.setCell(Cell(value: 9), at: GridPosition(row: 0, column: 5))
+
+        let piece = spawnSystem.makePiece(on: board, value: 4)
+        #expect(piece != nil)
+        #expect(piece?.position.column != 5)
     }
 
     @Test
@@ -748,8 +786,9 @@ struct FallingNumbersTests {
     func gameOverWhenSpawnCellIsBlocked() {
         let config = GameConfig(columns: 10, rows: 20, tickInterval: 0.5, baseTargetNumber: 10)
         var state = GameState.initial(config: config)
-        let blockedSpawn = GridPosition(row: 0, column: config.columns / 2)
-        state.board.setCell(Cell(value: 7), at: blockedSpawn)
+        for column in 0..<config.columns {
+            state.board.setCell(Cell(value: 7), at: GridPosition(row: 0, column: column))
+        }
 
         var engine = GameEngine(state: state, config: config)
         engine.send(.start)

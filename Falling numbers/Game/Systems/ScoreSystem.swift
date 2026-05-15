@@ -10,6 +10,8 @@ struct ClearScoreBreakdown {
 }
 
 struct ScoreSystem {
+    private let horizontalBonusMultiplier = 1.1
+
     func perfectClearBonus(level: Int, base: Int, perLevel: Int) -> Int {
         base + (max(1, level) * perLevel)
     }
@@ -57,11 +59,12 @@ struct ScoreSystem {
         }
     }
 
-    func scoreBreakdownForClear(tileCount: Int, cascade: Int) -> ClearScoreBreakdown {
+    func scoreBreakdownForClear(tileCount: Int, cascade: Int, isHorizontal: Bool = false) -> ClearScoreBreakdown {
         let baseScore = tileCount * 10
         let lengthMultiplier = lengthMultiplier(for: tileCount)
         let cascadeMultiplier = cascadeMultiplier(for: cascade)
-        let final = Int((Double(baseScore) * lengthMultiplier * cascadeMultiplier).rounded())
+        let directionalMultiplier = isHorizontal ? horizontalBonusMultiplier : 1.0
+        let final = Int((Double(baseScore) * lengthMultiplier * cascadeMultiplier * directionalMultiplier).rounded())
         return ClearScoreBreakdown(
             lineLength: tileCount,
             baseScore: baseScore,
@@ -72,7 +75,7 @@ struct ScoreSystem {
         )
     }
 
-    func pointsForClear(tileCount: Int, cascade: Int) -> Int {
-        scoreBreakdownForClear(tileCount: tileCount, cascade: cascade).awardedScore
+    func pointsForClear(tileCount: Int, cascade: Int, isHorizontal: Bool = false) -> Int {
+        scoreBreakdownForClear(tileCount: tileCount, cascade: cascade, isHorizontal: isHorizontal).awardedScore
     }
 }
