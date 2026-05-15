@@ -38,11 +38,12 @@ final class GameScreenViewModel: ObservableObject {
         let resolvedEngine = engine ?? GameEngine()
         let resolvedHighScoreStore = highScoreStore ?? UserDefaultsHighScoreStore()
         let resolvedSettingsStore = settingsStore ?? UserDefaultsSettingsStore()
+        let initialMode = resolvedEngine.state.gameMode
 
         self.engine = resolvedEngine
         self.state = resolvedEngine.state
         self.highScoreStore = resolvedHighScoreStore
-        self.highScore = resolvedHighScoreStore.load()
+        self.highScore = resolvedHighScoreStore.load(for: initialMode)
         self.settingsStore = resolvedSettingsStore
         self.settings = resolvedSettingsStore.load()
         self.haptics = haptics ?? UIKitHapticsClient()
@@ -109,6 +110,12 @@ final class GameScreenViewModel: ObservableObject {
         showsStartOverlay = false
     }
 
+    func setMode(_ mode: GameMode) {
+        engine.send(.setMode(mode))
+        syncFromEngine(previous: state)
+        showsStartOverlay = false
+    }
+
     func startGameFromOverlay() {
         guard showsStartOverlay else { return }
         showsStartOverlay = false
@@ -155,7 +162,7 @@ final class GameScreenViewModel: ObservableObject {
     }
 
     func resetHighScore() {
-        highScoreStore.save(0)
+        highScoreStore.save(0, for: state.gameMode)
         highScore = 0
     }
 
@@ -180,9 +187,13 @@ final class GameScreenViewModel: ObservableObject {
     private func syncFromEngine(previous: GameState?) {
         state = engine.state
 
+        if let previous, previous.gameMode != state.gameMode {
+            highScore = highScoreStore.load(for: state.gameMode)
+        }
+
         if state.score > highScore {
             highScore = state.score
-            highScoreStore.save(highScore)
+            highScoreStore.save(highScore, for: state.gameMode)
         }
 
         if let previous {

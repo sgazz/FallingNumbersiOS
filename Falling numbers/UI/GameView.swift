@@ -227,7 +227,7 @@ struct GameView: View {
     }
 
     private var targetRowLayer: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 6) {
             targetInlineChip
                 .frame(maxWidth: .infinity)
                 .accessibilityLabel("Target \(viewModel.state.targetNumber)")
