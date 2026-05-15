@@ -2,6 +2,8 @@ import SwiftUI
 
 struct GameView: View {
     @ObservedObject var viewModel: GameScreenViewModel
+    var onMainMenu: (() -> Void)? = nil
+    var showsEmbeddedStartOverlay: Bool = false
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @State private var isSettingsPresented = false
     @State private var scorePulse = false
@@ -25,8 +27,9 @@ struct GameView: View {
                 let contentPadding: CGFloat = 12
                 let topInset = max(2, proxy.safeAreaInsets.top)
 
-                let topRowHeight: CGFloat = 32
-                let secondRowHeight: CGFloat = 30
+                let topRowHeight: CGFloat = 36
+                let secondRowHeight: CGFloat = 36
+                let thirdRowHeight: CGFloat = 30
                 let boardTopGap: CGFloat = 8
                 let controlsReservedHeight: CGFloat = voiceOverEnabled ? 66 : 8
                 let verticalSpacing: CGFloat = 6
@@ -34,9 +37,10 @@ struct GameView: View {
                 let fixedVertical = topInset
                     + topRowHeight
                     + secondRowHeight
+                    + thirdRowHeight
                     + boardTopGap
                     + controlsReservedHeight
-                    + verticalSpacing * 2
+                    + verticalSpacing * 3
 
                 let availableBoardHeight = max(220, proxy.size.height - fixedVertical)
                 let maxBoardWidth = max(170, proxy.size.width - sidePadding * 2)
@@ -44,12 +48,16 @@ struct GameView: View {
                 let boardWidth = boardHeight * 0.5
 
                 VStack(spacing: verticalSpacing) {
-                    scoreBestLayer
+                    topPrimaryLayer
                         .frame(height: topRowHeight)
                         .padding(.horizontal, contentPadding)
 
-                    compactStatsLayer
+                    targetRowLayer
                         .frame(height: secondRowHeight)
+                        .padding(.horizontal, contentPadding)
+
+                    topStatusLayer
+                        .frame(height: thirdRowHeight)
                         .padding(.horizontal, contentPadding)
 
                     Color.clear.frame(height: boardTopGap)
@@ -122,15 +130,10 @@ struct GameView: View {
             }
 
             if viewModel.state.isGameOver {
-                overlayCard(
-                    title: "Game Over",
-                    subtitle: "Final \(viewModel.state.score)  •  Best \(viewModel.highScore)",
-                    buttonTitle: "Play Again",
-                    action: viewModel.newGame
-                )
+                gameOverOverlay
             }
 
-            if viewModel.showsStartOverlay {
+            if showsEmbeddedStartOverlay, viewModel.showsStartOverlay {
                 startOverlay
                     .transition(.opacity)
             }
@@ -195,35 +198,39 @@ struct GameView: View {
         }
     }
 
-    private var scoreBestLayer: some View {
+    private var topPrimaryLayer: some View {
         HStack(spacing: 8) {
-            inlineChip(text: "Score \(viewModel.state.score)")
+            inlineChip(text: "Score \(viewModel.state.score)", style: .score)
                 .scaleEffect(scorePulse ? 1.03 : 1.0)
                 .animation(.easeOut(duration: 0.16), value: scorePulse)
                 .accessibilityLabel("Score \(viewModel.state.score)")
             iconButton(symbol: "pause.circle", accessibilityLabel: viewModel.state.isPaused ? "Resume game" : "Pause game") {
                 viewModel.togglePause()
             }
-            iconButton(symbol: "gearshape", accessibilityLabel: "Open settings") {
-                isSettingsPresented = true
-            }
-            inlineChip(text: "Best \(viewModel.highScore)")
+            .frame(maxWidth: .infinity)
+            inlineChip(text: "Best \(viewModel.highScore)", style: .best)
                 .accessibilityLabel("High score \(viewModel.highScore)")
         }
     }
 
-    private var compactStatsLayer: some View {
+    private var topStatusLayer: some View {
         HStack(spacing: 6) {
-            inlineChip(text: "Lvl \(viewModel.state.level)")
+            inlineChip(text: "Lvl \(viewModel.state.level)", style: .level)
                 .accessibilityLabel("Level \(viewModel.state.level)")
-            targetInlineChip
-                .accessibilityLabel("Target number \(viewModel.state.targetNumber)")
-            inlineChip(text: "Cascade ×\(max(1, viewModel.state.cascadeCount))")
+            inlineChip(text: "Cascade ×\(max(1, viewModel.state.cascadeCount))", style: .cascade)
                 .scaleEffect(cascadePulse ? 1.03 : 1.0)
                 .animation(.easeOut(duration: 0.16), value: cascadePulse)
                 .accessibilityLabel("Cascade \(max(1, viewModel.state.cascadeCount))")
-            inlineChip(text: "Next \(viewModel.state.nextPieceValue)")
+            inlineChip(text: "Next \(viewModel.state.nextPieceValue)", style: .next)
                 .accessibilityLabel("Next piece \(viewModel.state.nextPieceValue)")
+        }
+    }
+
+    private var targetRowLayer: some View {
+        HStack(spacing: 0) {
+            targetInlineChip
+                .frame(maxWidth: .infinity)
+                .accessibilityLabel("Target \(viewModel.state.targetNumber)")
         }
     }
 
@@ -231,19 +238,26 @@ struct GameView: View {
         Text("TARGET \(viewModel.state.targetNumber)")
             .font(.subheadline.weight(.heavy))
             .tracking(0.4)
-            .foregroundStyle(NeonTheme.textPrimary)
+            .foregroundStyle(Color.white)
             .lineLimit(1)
             .minimumScaleFactor(0.85)
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(NeonTheme.chipFill)
+                    .fill(
+                        LinearGradient(
+                            colors: [NeonTheme.accentPrimary, NeonTheme.accentSecondary],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(NeonTheme.chipStroke, lineWidth: 1.0)
+                    .stroke(Color.white.opacity(0.28), lineWidth: 1.0)
             )
+            .shadow(color: NeonTheme.glowColor.opacity(0.35), radius: 8)
             .scaleEffect(targetPulse ? 1.06 : 1.0)
             .animation(.easeOut(duration: 0.2), value: targetPulse)
     }
@@ -457,17 +471,107 @@ struct GameView: View {
         NeonTheme.overlayScrim
             .ignoresSafeArea()
 
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             Text("Paused")
                 .font(.title2.bold())
                 .foregroundStyle(NeonTheme.textPrimary)
+
+            VStack(spacing: 10) {
+                pauseActionButton(
+                    title: "Resume",
+                    style: .primary,
+                    action: viewModel.togglePause
+                )
+
+                pauseActionButton(
+                    title: "Settings",
+                    style: .secondary
+                ) {
+                    isSettingsPresented = true
+                }
+
+                pauseActionButton(
+                    title: "New Game",
+                    style: .secondary,
+                    action: viewModel.newGame
+                )
+
+                if let onMainMenu {
+                    pauseActionButton(
+                        title: "Main Menu",
+                        style: .secondary
+                    ) {
+                        onMainMenu()
+                    }
+                }
+            }
+            .frame(maxWidth: 260)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 24)
+        .background(NeonTheme.cardFill)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(NeonTheme.cardStroke, lineWidth: 1)
+        }
+        .frame(maxWidth: 320)
+    }
+
+    private enum PauseButtonStyleKind {
+        case primary
+        case secondary
+    }
+
+    private func pauseActionButton(
+        title: String,
+        style: PauseButtonStyleKind,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(style == .primary ? Color.white : NeonTheme.textPrimary)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(style == .primary ? AnyShapeStyle(NeonTheme.buttonFill) : AnyShapeStyle(NeonTheme.chipFill))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(style == .primary ? Color.white.opacity(0.26) : NeonTheme.chipStroke, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var gameOverOverlay: some View {
+        NeonTheme.overlayScrim
+            .ignoresSafeArea()
+
+        VStack(spacing: 12) {
+            Text("Game Over")
+                .font(.title2.bold())
+                .foregroundStyle(NeonTheme.textPrimary)
+            Text("Final \(viewModel.state.score)  •  Best \(viewModel.highScore)")
+                .font(.subheadline)
+                .foregroundStyle(NeonTheme.textSecondary)
+
             HStack(spacing: 10) {
-                Button("Resume", action: viewModel.togglePause)
+                Button("Retry", action: viewModel.newGame)
                     .buttonStyle(.borderedProminent)
                     .tint(NeonTheme.controlsTint)
-                Button("New Game", action: viewModel.newGame)
+                    .accessibilityLabel("Retry")
+
+                if let onMainMenu {
+                    Button("Main Menu") {
+                        onMainMenu()
+                    }
                     .buttonStyle(.bordered)
                     .tint(NeonTheme.textPrimary.opacity(0.75))
+                    .accessibilityLabel("Main menu")
+                }
             }
         }
         .padding(22)
@@ -483,31 +587,82 @@ struct GameView: View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(NeonTheme.textPrimary.opacity(0.92))
-                .frame(width: 32, height: 32)
-                .background(NeonTheme.chipFill.opacity(0.98))
+                .foregroundStyle(Color.white.opacity(0.94))
+                .frame(width: 30, height: 30)
+                .background(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.36, green: 0.25, blue: 0.73),
+                            Color(red: 0.22, green: 0.53, blue: 0.95)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .clipShape(Circle())
-                .overlay(Circle().stroke(NeonTheme.chipStroke, lineWidth: 0.8))
+                .overlay(Circle().stroke(Color.white.opacity(0.28), lineWidth: 0.8))
         }
         .accessibilityLabel(accessibilityLabel)
     }
 
-    private func inlineChip(text: String) -> some View {
-        Text(text)
+    private enum HUDChipStyle {
+        case score
+        case best
+        case level
+        case cascade
+        case next
+    }
+
+    private func inlineChip(text: String, style: HUDChipStyle) -> some View {
+        let gradient: LinearGradient
+        switch style {
+        case .score:
+            gradient = LinearGradient(
+                colors: [Color(red: 0.23, green: 0.64, blue: 0.98), Color(red: 0.28, green: 0.43, blue: 0.94)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .best:
+            gradient = LinearGradient(
+                colors: [Color(red: 0.54, green: 0.35, blue: 0.92), Color(red: 0.98, green: 0.72, blue: 0.28)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .level:
+            gradient = LinearGradient(
+                colors: [Color(red: 0.21, green: 0.78, blue: 0.48), Color(red: 0.18, green: 0.60, blue: 0.37)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .cascade:
+            gradient = LinearGradient(
+                colors: [Color(red: 0.98, green: 0.41, blue: 0.65), Color(red: 0.99, green: 0.53, blue: 0.24), Color(red: 0.66, green: 0.41, blue: 0.93)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .next:
+            gradient = LinearGradient(
+                colors: [Color(red: 0.24, green: 0.77, blue: 0.74), Color(red: 0.47, green: 0.36, blue: 0.89)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+
+        return Text(text)
             .font(.footnote.weight(.semibold))
-            .foregroundStyle(NeonTheme.textPrimary)
+            .foregroundStyle(Color.white)
             .lineLimit(1)
             .minimumScaleFactor(0.85)
             .padding(.horizontal, 10)
             .frame(maxHeight: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(NeonTheme.chipFill)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(NeonTheme.chipStroke, lineWidth: 0.7)
-        )
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(gradient)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.white.opacity(0.24), lineWidth: 0.7)
+            )
     }
 
     private func controlButton(symbol: String, label: String, accessibilityLabel: String, action: @escaping () -> Void) -> some View {
