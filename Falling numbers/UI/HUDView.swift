@@ -5,7 +5,7 @@ struct HUDView: View {
     let highScore: Int
     let target: Int
     let level: Int
-    let combo: Int
+    let cascade: Int
     let next: Int
     let targetPulsing: Bool
 
@@ -28,8 +28,8 @@ struct HUDView: View {
             HStack(spacing: 6) {
                 tertiaryChip(title: "Level", value: "\(level)")
                     .accessibilityLabel("Level \(level)")
-                tertiaryChip(title: "Combo", value: "\(combo)")
-                    .accessibilityLabel("Combo \(combo)")
+                tertiaryChip(title: "Cascade", value: "×\(max(1, cascade))")
+                    .accessibilityLabel("Cascade \(max(1, cascade))")
                 tertiaryChip(title: "Next", value: "\(next)")
                     .accessibilityLabel("Next piece \(next)")
             }

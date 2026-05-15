@@ -5,8 +5,9 @@ struct GameView: View {
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @State private var isSettingsPresented = false
     @State private var scorePulse = false
-    @State private var comboPulse = false
+    @State private var cascadePulse = false
     @State private var targetPulse = false
+    @State private var perfectClearVisible = false
     @State private var boardOffsetY: CGFloat = 0
     @State private var boardScale: CGFloat = 1.0
 #if DEBUG
@@ -59,7 +60,29 @@ struct GameView: View {
                     ))
                     .frame(width: boardWidth, height: boardHeight)
                     .overlay {
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color.orange.opacity(min(0.16, Double(max(0, viewModel.state.cascadeCount - 1)) * 0.03)))
+                            .allowsHitTesting(false)
+                    }
+                    .overlay {
                         invisibleControlZones
+                    }
+                    .overlay(alignment: .center) {
+                        if perfectClearVisible {
+                            Text("PERFECT CLEAR")
+                                .font(.title3.weight(.heavy))
+                                .tracking(1.0)
+                                .foregroundStyle(NeonTheme.textPrimary)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .background(NeonTheme.chipFill.opacity(0.96))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(NeonTheme.chipStroke, lineWidth: 1)
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .transition(.opacity.combined(with: .scale(scale: 0.94)))
+                        }
                     }
                     .overlay {
                         RoundedRectangle(cornerRadius: 14)
@@ -150,16 +173,19 @@ struct GameView: View {
         .onChange(of: viewModel.state.score) { _, _ in
             pulseScore()
         }
-        .onChange(of: viewModel.state.comboCount) { _, newValue in
+        .onChange(of: viewModel.state.cascadeCount) { _, newValue in
             if newValue > 0 {
-                pulseCombo()
+                pulseCascade()
             }
         }
         .onChange(of: viewModel.comboPulseToken) { _, _ in
-            pulseCombo()
+            pulseCascade()
         }
         .onChange(of: viewModel.targetPulseToken) { _, _ in
             pulseTarget()
+        }
+        .onChange(of: viewModel.perfectClearToken) { _, _ in
+            showPerfectClearFeedback()
         }
         .onChange(of: viewModel.boardShakeToken) { _, _ in
             hardDropFeedback()
@@ -192,10 +218,10 @@ struct GameView: View {
                 .accessibilityLabel("Level \(viewModel.state.level)")
             targetInlineChip
                 .accessibilityLabel("Target number \(viewModel.state.targetNumber)")
-            inlineChip(text: "Combo \(viewModel.state.comboCount)")
-                .scaleEffect(comboPulse ? 1.03 : 1.0)
-                .animation(.easeOut(duration: 0.16), value: comboPulse)
-                .accessibilityLabel("Combo \(viewModel.state.comboCount)")
+            inlineChip(text: "Cascade ×\(max(1, viewModel.state.cascadeCount))")
+                .scaleEffect(cascadePulse ? 1.03 : 1.0)
+                .animation(.easeOut(duration: 0.16), value: cascadePulse)
+                .accessibilityLabel("Cascade \(max(1, viewModel.state.cascadeCount))")
             inlineChip(text: "Next \(viewModel.state.nextPieceValue)")
                 .accessibilityLabel("Next piece \(viewModel.state.nextPieceValue)")
         }
@@ -303,10 +329,10 @@ struct GameView: View {
         }
     }
 
-    private func pulseCombo() {
-        comboPulse = true
+    private func pulseCascade() {
+        cascadePulse = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
-            comboPulse = false
+            cascadePulse = false
         }
     }
 
@@ -326,6 +352,17 @@ struct GameView: View {
             withAnimation(.easeOut(duration: 0.1)) {
                 boardOffsetY = 0
                 boardScale = 1.0
+            }
+        }
+    }
+
+    private func showPerfectClearFeedback() {
+        withAnimation(.easeInOut(duration: 0.18)) {
+            perfectClearVisible = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            withAnimation(.easeOut(duration: 0.22)) {
+                perfectClearVisible = false
             }
         }
     }
@@ -512,7 +549,7 @@ struct GameView: View {
             Text("FPS: ~60")
             Text(String(format: "Tick: %.2fs", viewModel.state.currentTickInterval))
             Text("Tiles: \(viewModel.state.board.allOccupiedPositions().count + (viewModel.state.activePiece == nil ? 0 : 1))")
-            Text("Combo depth: \(viewModel.state.comboCount)")
+            Text("Cascade depth: \(viewModel.state.cascadeCount)")
             Text(String(format: "Screen H: %.0f", screenHeight))
             Text(String(format: "Board H: %.0f", boardHeight))
             Text(String(format: "Top Spacing: %.0f", topSpacing))

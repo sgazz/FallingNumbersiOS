@@ -8,8 +8,10 @@ enum MatchDirection: String {
 enum GameDebugLogger {
 #if DEBUG
     private static let prefix = "[GAME-DEBUG]"
+    private static let enableVerboseLogs = false
 
     static func log(_ message: String) {
+        guard enableVerboseLogs else { return }
         print("\(prefix) \(message)")
     }
 
@@ -50,28 +52,65 @@ enum GameDebugLogger {
         direction: MatchDirection,
         positions: [GridPosition],
         values: [Int],
-        sum: Int,
-        target: Int
+        target: Int,
+        removed: Int,
+        cascade: Int,
+        score: Int
     ) {
-        let pos = positions.map { "r\($0.row)c\($0.column)" }.joined(separator: ",")
+        let pos = positions.map { "[\($0.row),\($0.column)]" }.joined(separator: "")
         let vals = values.map(String.init).joined(separator: "+")
-        log("match \(direction.rawValue) target=\(target) sum=\(sum) vals=\(vals) pos=[\(pos)]")
+        print("[MATCH]")
+        print("target=\(target)")
+        print("dir=\(direction.rawValue)")
+        print("values=\(vals)")
+        print("positions=\(pos)")
+        print("removed=\(removed)")
+        print("cascade=\(cascade)")
+        print("score=\(score)")
     }
 
-    static func logResolvePass(
-        pass: Int,
-        selected: [GridPosition],
-        scoreGained: Int,
-        combo: Int,
-        continued: Bool
+    static func logCascade(step: Int) {
+        print("[CASCADE]")
+        print("step=\(step)")
+    }
+
+    static func logScoreBreakdown(
+        cascade: Int,
+        lineLength: Int,
+        baseScore: Int,
+        lengthMultiplier: Double,
+        cascadeMultiplier: Double,
+        specialSpawnChance: Double,
+        awarded: Int
     ) {
-        let pos = selected.map { "r\($0.row)c\($0.column)" }.joined(separator: ",")
-        log("resolve pass=\(pass) clear=[\(pos)] score+\(scoreGained) combo=\(combo) continued=\(continued)")
+        let chance = Int((specialSpawnChance * 100.0).rounded())
+        log("cascade=\(cascade) lineMultiplier=\(lengthMultiplier) cascadeMultiplier=\(cascadeMultiplier) scoreAwarded=\(awarded) specialChance=\(chance)% base=\(baseScore) len=\(lineLength)")
     }
 
     static func logGameOver(spawnPosition: GridPosition, board: Board) {
         log("game_over spawn_blocked at r\(spawnPosition.row)c\(spawnPosition.column)")
         logBoard(board, title: "board at game over")
+    }
+
+    static func logPerfectClear(bonus: Int, cascade: Int, specialSpawnChance: Double) {
+        print("[PERFECT CLEAR]")
+        print("bonus=\(bonus)")
+    }
+
+    static func logPowerUp(type: String, axis: String?, index: Int?, removed: Int) {
+        print("[POWERUP]")
+        print("type=\(type)")
+        if let axis, let index {
+            print("\(axis)=\(index)")
+        }
+        print("removed=\(removed)")
+    }
+
+    static func logState(target: Int, spawnColumn: Int, occupancyPercent: Int) {
+        print("[STATE]")
+        print("target=\(target)")
+        print("spawnColumn=\(spawnColumn)")
+        print("occupancy=\(occupancyPercent)%")
     }
 #else
     static func log(_ message: String) {}
@@ -80,8 +119,12 @@ enum GameDebugLogger {
     static func logHardDrop(value: Int, finalPosition: GridPosition, droppedRows: Int) {}
     static func logLock(value: Int, position: GridPosition) {}
     static func logBoard(_ board: Board, title: String) {}
-    static func logMatch(direction: MatchDirection, positions: [GridPosition], values: [Int], sum: Int, target: Int) {}
-    static func logResolvePass(pass: Int, selected: [GridPosition], scoreGained: Int, combo: Int, continued: Bool) {}
+    static func logMatch(direction: MatchDirection, positions: [GridPosition], values: [Int], target: Int, removed: Int, cascade: Int, score: Int) {}
+    static func logCascade(step: Int) {}
+    static func logScoreBreakdown(cascade: Int, lineLength: Int, baseScore: Int, lengthMultiplier: Double, cascadeMultiplier: Double, specialSpawnChance: Double, awarded: Int) {}
     static func logGameOver(spawnPosition: GridPosition, board: Board) {}
+    static func logPerfectClear(bonus: Int, cascade: Int, specialSpawnChance: Double) {}
+    static func logPowerUp(type: String, axis: String?, index: Int?, removed: Int) {}
+    static func logState(target: Int, spawnColumn: Int, occupancyPercent: Int) {}
 #endif
 }

@@ -21,14 +21,6 @@ struct CombinationDetector {
                     group.append(position)
 
                     if group.count >= 2, sum == target {
-                        let values = group.compactMap { board.cell(at: $0)?.value }
-                        GameDebugLogger.logMatch(
-                            direction: .horizontal,
-                            positions: group,
-                            values: values,
-                            sum: sum,
-                            target: target
-                        )
                         matches.append(group)
                     }
 
@@ -49,14 +41,6 @@ struct CombinationDetector {
                     group.append(position)
 
                     if group.count >= 2, sum == target {
-                        let values = group.compactMap { board.cell(at: $0)?.value }
-                        GameDebugLogger.logMatch(
-                            direction: .vertical,
-                            positions: group,
-                            values: values,
-                            sum: sum,
-                            target: target
-                        )
                         matches.append(group)
                     }
 

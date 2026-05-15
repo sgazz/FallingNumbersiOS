@@ -8,6 +8,8 @@ struct GameConfig {
     let targetChangeInterval: TimeInterval
     let baseTargetNumber: Int
     let startingLayoutSeed: Int
+    let perfectClearBonusBase: Int
+    let perfectClearBonusPerLevel: Int
 
     init(
         columns: Int,
@@ -16,7 +18,9 @@ struct GameConfig {
         lockDelayDuration: TimeInterval = 0.22,
         targetChangeInterval: TimeInterval = 30.0,
         baseTargetNumber: Int,
-        startingLayoutSeed: Int = 1
+        startingLayoutSeed: Int = 1,
+        perfectClearBonusBase: Int = 250,
+        perfectClearBonusPerLevel: Int = 100
     ) {
         self.columns = columns
         self.rows = rows
@@ -25,6 +29,8 @@ struct GameConfig {
         self.targetChangeInterval = targetChangeInterval
         self.baseTargetNumber = baseTargetNumber
         self.startingLayoutSeed = startingLayoutSeed
+        self.perfectClearBonusBase = perfectClearBonusBase
+        self.perfectClearBonusPerLevel = perfectClearBonusPerLevel
     }
 
     static let `default` = GameConfig(
@@ -34,6 +40,8 @@ struct GameConfig {
         lockDelayDuration: 0.22,
         targetChangeInterval: 30.0,
         baseTargetNumber: 10,
-        startingLayoutSeed: 1
+        startingLayoutSeed: 1,
+        perfectClearBonusBase: 250,
+        perfectClearBonusPerLevel: 100
     )
 }

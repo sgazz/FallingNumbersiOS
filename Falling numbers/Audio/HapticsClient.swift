@@ -5,6 +5,7 @@ protocol HapticsClient {
     func moved()
     func pieceLocked()
     func cleared(combo: Int)
+    func perfectClear()
     func gameOver()
 }
 
@@ -12,6 +13,7 @@ struct NoopHapticsClient: HapticsClient {
     func moved() {}
     func pieceLocked() {}
     func cleared(combo: Int) {}
+    func perfectClear() {}
     func gameOver() {}
 }
 
@@ -49,6 +51,11 @@ final class UIKitHapticsClient: HapticsClient {
         }
         clearGenerator.impactOccurred(intensity: 0.95)
         clearGenerator.prepare()
+    }
+
+    func perfectClear() {
+        comboGenerator.notificationOccurred(.success)
+        comboGenerator.prepare()
     }
 
     func gameOver() {
