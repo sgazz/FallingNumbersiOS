@@ -55,9 +55,48 @@ struct ScoreSystem {
             return 0.05
         case 3:
             return 0.08
-        default:
+        case 4...5:
             return 0.12
+        default:
+            // Balance guard: very deep cascades should not keep inflating future special spawns.
+            return 0.10
         }
+    }
+
+    func occupancyAdjustedSpecialSpawnChance(
+        baseChance: Double,
+        occupancyPercent: Int,
+        mode: GameMode
+    ) -> Double {
+        if mode == .expert {
+            let adjusted: Double
+            switch occupancyPercent {
+            case ..<25:
+                adjusted = baseChance * 0.35
+            case 25...55:
+                adjusted = baseChance * 0.65
+            case 56...69:
+                adjusted = baseChance * 0.9
+            case 70...100:
+                adjusted = baseChance * 1.15
+            default:
+                adjusted = baseChance * 0.65
+            }
+            return max(0.0, min(0.16, adjusted))
+        }
+
+        let adjusted: Double
+        switch occupancyPercent {
+        case ..<20:
+            adjusted = baseChance * 0.45
+        case 20...40:
+            adjusted = baseChance
+        case 46...100:
+            adjusted = baseChance * 1.35
+        default:
+            adjusted = baseChance
+        }
+        return max(0.0, min(0.22, adjusted))
     }
 
     func scoreBreakdownForClear(

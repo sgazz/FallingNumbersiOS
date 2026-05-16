@@ -30,7 +30,11 @@ struct GameEngine {
         configureInitialTargetForMode()
         updateProgressionState()
         applyStartingLayout()
-        state.nextPieceKind = spawnSystem.nextTileKind(level: state.level, mode: state.gameMode, specialSpawnChance: state.specialSpawnChance)
+        state.nextPieceKind = spawnSystem.nextTileKind(
+            level: state.level,
+            mode: state.gameMode,
+            specialSpawnChance: effectiveSpecialSpawnChance()
+        )
     }
 
     init(
@@ -92,6 +96,7 @@ struct GameEngine {
         case .hardDrop:
             hardDrop()
         case .tick:
+            recordActiveGameplayTime()
             applyPendingTargetChangeIfSafe()
             advanceTargetTimerIfNeeded()
             stepDownOrLock()
@@ -106,7 +111,11 @@ struct GameEngine {
         configureInitialTargetForMode()
         updateProgressionState()
         applyStartingLayout()
-        state.nextPieceKind = spawnSystem.nextTileKind(level: state.level, mode: state.gameMode, specialSpawnChance: state.specialSpawnChance)
+        state.nextPieceKind = spawnSystem.nextTileKind(
+            level: state.level,
+            mode: state.gameMode,
+            specialSpawnChance: effectiveSpecialSpawnChance()
+        )
         spawnIfNeeded()
     }
 
@@ -239,6 +248,9 @@ struct GameEngine {
         GameDebugLogger.logLock(value: piece.kind.numericValue ?? 0, position: piece.position)
         state.lastLockedPosition = piece.position
         state.activePiece = nil
+        state.telemetry.totalLocks += 1
+        recordOccupancySample()
+        logPeriodicBalanceSample(triggeredByLevelChange: false, spawnColumn: nil)
         return piece.position
     }
 
@@ -277,6 +289,7 @@ struct GameEngine {
     private mutating func activateRowClear(at position: GridPosition) {
         state.lastPowerUpActivation = PowerUpActivation(type: .rowClear, row: position.row, column: nil)
         state.powerUpEventToken &+= 1
+        state.telemetry.powerUpsUsed[.rowClear, default: 0] += 1
         var removed = 0
         for column in 0..<state.board.columns {
             let target = GridPosition(row: position.row, column: column)
@@ -296,6 +309,7 @@ struct GameEngine {
     private mutating func activateColumnClear(at position: GridPosition) {
         state.lastPowerUpActivation = PowerUpActivation(type: .columnClear, row: nil, column: position.column)
         state.powerUpEventToken &+= 1
+        state.telemetry.powerUpsUsed[.columnClear, default: 0] += 1
         var removed = 0
         for row in 0..<state.board.rows {
             let target = GridPosition(row: row, column: position.column)
@@ -315,6 +329,7 @@ struct GameEngine {
     private mutating func activateReorder(at position: GridPosition) {
         state.lastPowerUpActivation = PowerUpActivation(type: .reorder, row: nil, column: nil)
         state.powerUpEventToken &+= 1
+        state.telemetry.powerUpsUsed[.reorder, default: 0] += 1
         // Power-up tile disappears on activation.
         state.board.setCell(nil, at: position)
 
@@ -356,8 +371,19 @@ struct GameEngine {
         var combo = 0
         var originForCurrentPass = preferredOrigin
         var workingCascade = state.cascadeCount
+        var chainClearedTiles = 0
+        let cascadeAutoResolveCap = state.gameMode == .beginner ? 6 : 5
 
         while true {
+            if combo >= cascadeAutoResolveCap {
+                GameDebugLogger.logCascadeCapHit(
+                    mode: state.gameMode,
+                    cap: cascadeAutoResolveCap,
+                    level: state.level,
+                    cascade: max(1, workingCascade)
+                )
+                break
+            }
             GameDebugLogger.logBoard(state.board, title: "board before detection")
             let groups = detector.findMatchingGroups(on: state.board, target: state.targetNumber)
             if groups.isEmpty {
@@ -398,6 +424,7 @@ struct GameEngine {
             originForCurrentPass = nil
 
             let scoreBefore = state.score
+            let occupancyBefore = occupancyPercent()
             let orderedGroup = orderedPositions(in: selectedGroup, direction: directionFor(group: selectedGroup))
             let selectedValues = orderedGroup.compactMap { state.board.cell(at: $0)?.value }
             let direction: MatchDirection = isHorizontal(selectedGroup) ? .horizontal : .vertical
@@ -407,10 +434,14 @@ struct GameEngine {
             GameDebugLogger.logBoard(state.board, title: "board after clear")
 
             let clearedCount = orderedGroup.count
+            chainClearedTiles += clearedCount
             state.totalClearedTiles += clearedCount
             state.linesCleared += 1
+            state.telemetry.totalMatches += 1
+            state.telemetry.matchesByLength[clearedCount, default: 0] += 1
             state.longestLineCleared = max(state.longestLineCleared, clearedCount)
             let effectiveCascade = max(1, workingCascade)
+            state.telemetry.cascadeDepthDistribution[effectiveCascade, default: 0] += 1
             state.highestCascade = max(state.highestCascade, effectiveCascade)
             let scoreBreakdown = scoreSystem.scoreBreakdownForClear(
                 tileCount: clearedCount,
@@ -445,6 +476,7 @@ struct GameEngine {
 
             gravitySystem.collapse(board: &state.board)
             GameDebugLogger.logBoard(state.board, title: "board after gravity")
+            let occupancyAfter = occupancyPercent()
             let scoreGained = state.score - scoreBefore
             GameDebugLogger.logMatch(
                 direction: direction,
@@ -455,6 +487,16 @@ struct GameEngine {
                 cascade: effectiveCascade,
                 score: scoreGained
             )
+            if effectiveCascade >= 6 {
+                GameDebugLogger.logLongCascade(
+                    level: state.level,
+                    target: state.targetNumber,
+                    cascade: effectiveCascade,
+                    occupancyBefore: occupancyBefore,
+                    occupancyAfter: occupancyAfter,
+                    clearedTilesInChain: chainClearedTiles
+                )
+            }
         }
 
         if combo > 0, boardIsEmpty() {
@@ -491,20 +533,43 @@ struct GameEngine {
         applyPendingTargetChangeIfSafe()
     }
 
+    private func occupancyPercent() -> Int {
+        let occupied = state.board.allOccupiedPositions().count
+        let capacity = max(1, state.board.rows * state.board.columns)
+        return Int((Double(occupied) / Double(capacity) * 100.0).rounded())
+    }
+
     private mutating func updateProgressionState() {
         let previousLevel = state.level
 
         let computedLevel = levelSystem.level(forScore: state.score)
         state.level = computedLevel
         state.didLevelChange = computedLevel != previousLevel
+        updateExpertPressureState()
 
         let baseTick = (state.gameMode == .expert) ? config.expertStartingTickInterval : config.tickInterval
+        let speedMultiplier = levelSystem.fallSpeedMultiplier(forLevel: state.level, mode: state.gameMode)
         state.currentTickInterval = levelSystem.tickInterval(base: baseTick, level: state.level, mode: state.gameMode)
+        if state.didLevelChange || state.level == 1 {
+            GameDebugLogger.logSpeed(level: state.level, interval: state.currentTickInterval, mode: state.gameMode)
+            GameDebugLogger.logFallSpeed(
+                mode: state.gameMode,
+                level: state.level,
+                multiplier: speedMultiplier,
+                baseFallInterval: baseTick,
+                adjustedFallInterval: state.currentTickInterval
+            )
+        }
+
+        if state.didLevelChange {
+            logPeriodicBalanceSample(triggeredByLevelChange: true, spawnColumn: nil)
+        }
     }
 
     private mutating func advanceTargetTimerIfNeeded() {
         guard state.activePiece != nil else { return }
-        state.targetTimerRemaining -= state.currentTickInterval
+        let timerMultiplier = levelSystem.targetTimerDecrementMultiplier(level: state.level, mode: state.gameMode)
+        state.targetTimerRemaining -= state.currentTickInterval * timerMultiplier
         if state.targetTimerRemaining <= 0 {
             pendingTargetCycleAdvance = true
             state.targetTimerRemaining += config.targetChangeInterval
@@ -532,6 +597,13 @@ struct GameEngine {
         } else {
             state.targetRepeatCount = 0
             state.didTargetChange = true
+            GameDebugLogger.logTargetChange(
+                mode: state.gameMode,
+                level: state.level,
+                from: previous,
+                to: state.targetNumber,
+                cycle: state.targetCycleIndex
+            )
         }
     }
 
@@ -539,11 +611,28 @@ struct GameEngine {
         guard state.activePiece == nil else { return }
 
         let spawnKind = state.nextPieceKind
-        guard let piece = spawnSystem.makePiece(on: state.board, kind: spawnKind) else {
+        let forcedColumn = nextExpertBurstColumnIfNeeded()
+        guard let piece = spawnSystem.makePiece(
+            on: state.board,
+            kind: spawnKind,
+            mode: state.gameMode,
+            pressureTier: state.expertSpawnPressureTier,
+            preferredColumn: forcedColumn
+        ) else {
             state.isGameOver = true
+            state.telemetry.gameOverReason = .spawnBlocked
             let blocked = GridPosition(row: 0, column: state.board.columns / 2)
             GameDebugLogger.logGameOver(spawnPosition: blocked, board: state.board)
+            logBalanceSummaryIfNeeded()
             return
+        }
+
+        if case .rowClear = piece.kind {
+            state.telemetry.powerUpsSpawned[.rowClear, default: 0] += 1
+        } else if case .columnClear = piece.kind {
+            state.telemetry.powerUpsSpawned[.columnClear, default: 0] += 1
+        } else if case .reorder = piece.kind {
+            state.telemetry.powerUpsSpawned[.reorder, default: 0] += 1
         }
 
         state.activePiece = piece
@@ -557,8 +646,87 @@ struct GameEngine {
             spawnColumn: piece.position.column,
             occupancyPercent: occupancyPercent
         )
+        logPeriodicBalanceSample(triggeredByLevelChange: false, spawnColumn: piece.position.column)
         cancelLockDelay()
-        state.nextPieceKind = spawnSystem.nextTileKind(level: state.level, mode: state.gameMode, specialSpawnChance: state.specialSpawnChance)
+        state.nextPieceKind = spawnSystem.nextTileKind(
+            level: state.level,
+            mode: state.gameMode,
+            specialSpawnChance: effectiveSpecialSpawnChance()
+        )
+    }
+
+    private func effectiveSpecialSpawnChance() -> Double {
+        let occupied = state.board.allOccupiedPositions().count
+        let capacity = max(1, state.board.rows * state.board.columns)
+        let occupancyPercent = Int((Double(occupied) / Double(capacity) * 100.0).rounded())
+        let baseChance = state.specialSpawnChance
+        let adjustedChance = scoreSystem.occupancyAdjustedSpecialSpawnChance(
+            baseChance: baseChance,
+            occupancyPercent: occupancyPercent,
+            mode: state.gameMode
+        )
+        if adjustedChance < baseChance {
+            GameDebugLogger.logPowerUpChanceAdjustment(
+                mode: state.gameMode,
+                reason: "low_occupancy",
+                occupancyPercent: occupancyPercent,
+                baseChance: baseChance,
+                adjustedChance: adjustedChance
+            )
+        } else if adjustedChance > baseChance {
+            GameDebugLogger.logPowerUpChanceAdjustment(
+                mode: state.gameMode,
+                reason: "rescue_high_occupancy",
+                occupancyPercent: occupancyPercent,
+                baseChance: baseChance,
+                adjustedChance: adjustedChance
+            )
+        }
+        return adjustedChance
+    }
+
+    private mutating func nextExpertBurstColumnIfNeeded() -> Int? {
+        guard state.gameMode == .expert, state.expertPressureRampActive else { return nil }
+        if state.expertBurstRemaining > 0, let column = state.expertBurstColumn {
+            state.expertBurstRemaining -= 1
+            return column
+        }
+        let occupancy = occupancyPercent()
+        let burst = spawnSystem.expertBurstLength(
+            pressureTier: state.expertSpawnPressureTier,
+            occupancyPercent: occupancy
+        )
+        let column = spawnSystem.nextSpawnColumn(
+            columns: state.board.columns,
+            mode: state.gameMode,
+            pressureTier: state.expertSpawnPressureTier
+        )
+        state.expertBurstColumn = column
+        state.expertBurstRemaining = max(0, burst - 1)
+        return column
+    }
+
+    private mutating func updateExpertPressureState() {
+        guard state.gameMode == .expert else {
+            state.expertPressureRampActive = false
+            state.expertSpawnPressureTier = 0
+            state.telemetry.expertPressureRampActive = false
+            state.telemetry.expertSpawnPressureTier = 0
+            return
+        }
+        let level = state.level
+        let tier: Int
+        if level >= 15 {
+            tier = 2
+        } else if level >= 12 {
+            tier = 1
+        } else {
+            tier = 0
+        }
+        state.expertSpawnPressureTier = tier
+        state.expertPressureRampActive = tier > 0
+        state.telemetry.expertPressureRampActive = state.expertPressureRampActive
+        state.telemetry.expertSpawnPressureTier = tier
     }
 
     private mutating func applyStartingLayout() {
@@ -680,5 +848,136 @@ struct GameEngine {
 
     private func boardIsEmpty() -> Bool {
         state.board.cells.allSatisfy { $0 == nil }
+    }
+
+    private mutating func recordActiveGameplayTime() {
+        state.telemetry.activeGameplaySeconds += state.currentTickInterval
+        state.telemetry.timeSpentPerLevel[state.level, default: 0] += state.currentTickInterval
+        let occupancy = occupancyPercent()
+        if occupancy >= 50 {
+            state.telemetry.timeAbove50Occupancy += state.currentTickInterval
+        }
+        if occupancy >= 70 {
+            state.telemetry.timeAbove70Occupancy += state.currentTickInterval
+        }
+        let topTouched = boardTouchesTopRows()
+        if topTouched, !state.telemetry.wasTopRowsTouched {
+            state.telemetry.topRowsTouchedCount += 1
+        }
+        state.telemetry.wasTopRowsTouched = topTouched
+        let nearDeath = boardNearDeath()
+        if nearDeath, !state.telemetry.wasNearDeath {
+            state.telemetry.nearDeathEvents += 1
+        }
+        state.telemetry.wasNearDeath = nearDeath
+        state.telemetry.recentOccupancySamples.append(
+            OccupancySample(time: state.telemetry.activeGameplaySeconds, occupancyPercent: occupancy)
+        )
+        let cutoff = state.telemetry.activeGameplaySeconds - 60.0
+        state.telemetry.recentOccupancySamples.removeAll { $0.time < cutoff }
+        if state.telemetry.recentOccupancySamples.isEmpty {
+            state.telemetry.averageOccupancyLast60s = 0
+        } else {
+            let sum = state.telemetry.recentOccupancySamples.reduce(0) { $0 + $1.occupancyPercent }
+            state.telemetry.averageOccupancyLast60s = Double(sum) / Double(state.telemetry.recentOccupancySamples.count)
+        }
+    }
+
+    private func boardTouchesTopRows() -> Bool {
+        let rowsToCheck = min(3, state.board.rows)
+        for row in 0..<rowsToCheck {
+            for column in 0..<state.board.columns {
+                if state.board.cell(at: GridPosition(row: row, column: column)) != nil {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    private func boardNearDeath() -> Bool {
+        guard state.board.rows > 0 else { return false }
+        for column in 0..<state.board.columns {
+            if state.board.cell(at: GridPosition(row: 0, column: column)) != nil {
+                return true
+            }
+        }
+        return false
+    }
+
+    private mutating func recordOccupancySample() {
+        let occupied = state.board.allOccupiedPositions().count
+        state.telemetry.occupancySampleCount += 1
+        state.telemetry.occupancySum += occupied
+        state.telemetry.maxOccupancy = max(state.telemetry.maxOccupancy, occupied)
+        state.telemetry.minOccupancy = min(state.telemetry.minOccupancy, occupied)
+        var levelStats = state.telemetry.occupancyByLevel[state.level] ?? .empty
+        levelStats.record(occupied)
+        state.telemetry.occupancyByLevel[state.level] = levelStats
+    }
+
+    private mutating func logPeriodicBalanceSample(triggeredByLevelChange: Bool, spawnColumn: Int?) {
+        let everyNLocks = 25
+        guard triggeredByLevelChange || (state.telemetry.totalLocks > 0 && state.telemetry.totalLocks % everyNLocks == 0) else { return }
+        let occupied = state.board.allOccupiedPositions().count
+        let capacity = max(1, state.board.rows * state.board.columns)
+        let occupancyPercent = Int((Double(occupied) / Double(capacity) * 100.0).rounded())
+        let totalPowerUps = state.telemetry.powerUpsSpawned.values.reduce(0, +)
+        GameDebugLogger.logBalanceSample(
+            level: state.level,
+            score: state.score,
+            occupancyPercent: occupancyPercent,
+            target: state.targetNumber,
+            spawnColumn: spawnColumn,
+            totalMatches: state.telemetry.totalMatches,
+            totalPowerUps: totalPowerUps,
+            cascadeCount: state.cascadeCount,
+            expertPressureRampActive: state.expertPressureRampActive,
+            expertSpawnPressureTier: state.expertSpawnPressureTier
+        )
+    }
+
+    private mutating func logBalanceSummaryIfNeeded() {
+        guard !state.telemetry.didPrintSummary else { return }
+        state.telemetry.didPrintSummary = true
+
+        let duration = max(0.001, state.telemetry.activeGameplaySeconds)
+        let avgOcc: Double
+        if state.telemetry.occupancySampleCount > 0 {
+            avgOcc = Double(state.telemetry.occupancySum) / Double(state.telemetry.occupancySampleCount)
+        } else {
+            avgOcc = 0
+        }
+        let minOcc = state.telemetry.minOccupancy == Int.max ? 0 : state.telemetry.minOccupancy
+        let scorePerMinute = Double(state.score) / (duration / 60.0)
+        let clearsPerMinute = Double(state.telemetry.totalMatches) / (duration / 60.0)
+
+        GameDebugLogger.logBalanceSummary(
+            sessionDuration: duration,
+            finalLevel: state.level,
+            finalScore: state.score,
+            totalLocks: state.telemetry.totalLocks,
+            totalMatches: state.telemetry.totalMatches,
+            totalClearedTiles: state.totalClearedTiles,
+            averageOccupancy: avgOcc,
+            maxOccupancy: state.telemetry.maxOccupancy,
+            minOccupancy: minOcc,
+            occupancyByLevel: state.telemetry.occupancyByLevel,
+            powerUpsSpawned: state.telemetry.powerUpsSpawned,
+            powerUpsUsed: state.telemetry.powerUpsUsed,
+            matchesByLength: state.telemetry.matchesByLength,
+            cascadeDepthDistribution: state.telemetry.cascadeDepthDistribution,
+            averageScorePerMinute: scorePerMinute,
+            averageClearsPerMinute: clearsPerMinute,
+            timeSpentPerLevel: state.telemetry.timeSpentPerLevel,
+            gameOverReason: state.telemetry.gameOverReason,
+            averageOccupancyLast60s: state.telemetry.averageOccupancyLast60s,
+            timeAbove50Occupancy: state.telemetry.timeAbove50Occupancy,
+            timeAbove70Occupancy: state.telemetry.timeAbove70Occupancy,
+            topRowsTouchedCount: state.telemetry.topRowsTouchedCount,
+            nearDeathEvents: state.telemetry.nearDeathEvents,
+            expertPressureRampActive: state.telemetry.expertPressureRampActive,
+            expertSpawnPressureTier: state.telemetry.expertSpawnPressureTier
+        )
     }
 }

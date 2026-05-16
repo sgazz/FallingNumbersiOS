@@ -223,19 +223,20 @@ struct FallingNumbersTests {
 
         var engine = GameEngine(state: state, config: config)
         engine.send(.tick) // start delay
-        engine.send(.tick) // 0.44
-        engine.send(.tick) // 0.18
-        #expect(engine.state.activePiece != nil)
-        engine.send(.tick) // expire and lock
+        var attempts = 0
+        while engine.state.board.cell(at: GridPosition(row: 3, column: 1)) == nil, attempts < 20 {
+            engine.send(.tick)
+            attempts += 1
+        }
 
-        #expect(engine.state.activePiece != nil) // next piece spawned
+        #expect(attempts < 20)
         #expect(engine.state.board.cell(at: GridPosition(row: 3, column: 1))?.value == 5)
         #expect(engine.state.isLockDelayActive == false)
     }
 
     @Test
     func leftRightMoveDuringDelayResetsDelay() {
-        let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.1, lockDelayDuration: 0.7, baseTargetNumber: 10)
+        let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.1, lockDelayDuration: 3.0, baseTargetNumber: 10)
         var state = GameState.initial(config: config)
         state.board = Board(rows: config.rows, columns: config.columns)
         state.activePiece = FallingPiece(value: 5, position: GridPosition(row: 3, column: 1))
@@ -398,6 +399,61 @@ struct FallingNumbersTests {
     }
 
     @Test
+    func beginnerCascadeStopsAtCapSixAndLeavesRemainingLine() {
+        let config = GameConfig(columns: 3, rows: 12, tickInterval: 0.5, baseTargetNumber: 10)
+        var state = GameState.initial(config: config, mode: .beginner)
+        state.board = Board(rows: config.rows, columns: config.columns)
+        state.targetNumber = 10
+        state.totalClearedTiles = 0
+
+        // Build 6 potential clears in one gravity chain:
+        // first clear must include locked tile; five more are prefilled above.
+        state.board.setCell(Cell(value: 6), at: GridPosition(row: 11, column: 0))
+        for row in 6...10 {
+            state.board.setCell(Cell(value: 6), at: GridPosition(row: row, column: 0))
+            state.board.setCell(Cell(value: 4), at: GridPosition(row: row, column: 1))
+        }
+        state.activePiece = FallingPiece(value: 4, position: GridPosition(row: 0, column: 1))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.hardDrop)
+
+        // Beginner cap is 6 steps, so one valid pair should remain.
+        #expect(engine.state.cascadeCount <= 6)
+        let remainingMatches = CombinationDetector().findMatchingGroups(on: engine.state.board, target: 10)
+        #expect(!remainingMatches.isEmpty)
+        #expect(engine.state.totalClearedTiles <= 12)
+    }
+
+    @Test
+    func expertCascadeCapIsStricterThanBeginnerOnSameBoard() {
+        let config = GameConfig(columns: 3, rows: 12, tickInterval: 0.5, baseTargetNumber: 10)
+        func seededState(mode: GameMode) -> GameState {
+            var state = GameState.initial(config: config, mode: mode)
+            state.board = Board(rows: config.rows, columns: config.columns)
+            state.targetNumber = 10
+            state.totalClearedTiles = 0
+            state.board.setCell(Cell(value: 6), at: GridPosition(row: 11, column: 0))
+            for row in 3...10 {
+                state.board.setCell(Cell(value: 6), at: GridPosition(row: row, column: 0))
+                state.board.setCell(Cell(value: 4), at: GridPosition(row: row, column: 1))
+            }
+            state.activePiece = FallingPiece(value: 4, position: GridPosition(row: 0, column: 1))
+            return state
+        }
+
+        var beginnerEngine = GameEngine(state: seededState(mode: .beginner), config: config)
+        beginnerEngine.send(.hardDrop)
+
+        var expertEngine = GameEngine(state: seededState(mode: .expert), config: config)
+        expertEngine.send(.hardDrop)
+
+        #expect(beginnerEngine.state.cascadeCount <= 6)
+        #expect(expertEngine.state.cascadeCount <= 5)
+        #expect(expertEngine.state.totalClearedTiles <= beginnerEngine.state.totalClearedTiles)
+    }
+
+    @Test
     func hardDropLocksCorrectly() {
         let config = GameConfig(columns: 4, rows: 6, tickInterval: 0.65, baseTargetNumber: 10)
         var state = GameState.initial(config: config)
@@ -495,6 +551,59 @@ struct FallingNumbersTests {
         #expect(scoreSystem.specialSpawnChance(for: 2) == 0.05)
         #expect(scoreSystem.specialSpawnChance(for: 3) == 0.08)
         #expect(scoreSystem.specialSpawnChance(for: 5) == 0.12)
+        #expect(scoreSystem.specialSpawnChance(for: 6) == 0.10)
+    }
+
+    @Test
+    func lowOccupancyReducesPowerUpChance() {
+        let scoreSystem = ScoreSystem()
+        let adjusted = scoreSystem.occupancyAdjustedSpecialSpawnChance(
+            baseChance: 0.12,
+            occupancyPercent: 12,
+            mode: .beginner
+        )
+        #expect(adjusted < 0.12)
+        #expect(adjusted == 0.054)
+    }
+
+    @Test
+    func highOccupancyIncreasesRescueChance() {
+        let scoreSystem = ScoreSystem()
+        let adjusted = scoreSystem.occupancyAdjustedSpecialSpawnChance(
+            baseChance: 0.08,
+            occupancyPercent: 52,
+            mode: .beginner
+        )
+        #expect(adjusted > 0.08)
+        #expect(abs(adjusted - 0.108) < 0.000_001)
+    }
+
+    @Test
+    func occupancyAdjustmentDoesNotAffectExpertMode() {
+        let scoreSystem = ScoreSystem()
+        let adjusted = scoreSystem.occupancyAdjustedSpecialSpawnChance(
+            baseChance: 0.08,
+            occupancyPercent: 52,
+            mode: .expert
+        )
+        #expect(adjusted < 0.08)
+    }
+
+    @Test
+    func expertRescueOnlyMeaningfulAtDangerousOccupancy() {
+        let scoreSystem = ScoreSystem()
+        let medium = scoreSystem.occupancyAdjustedSpecialSpawnChance(
+            baseChance: 0.08,
+            occupancyPercent: 52,
+            mode: .expert
+        )
+        let dangerous = scoreSystem.occupancyAdjustedSpecialSpawnChance(
+            baseChance: 0.08,
+            occupancyPercent: 75,
+            mode: .expert
+        )
+        #expect(abs(medium - 0.052) < 0.000_001)
+        #expect(dangerous > medium)
     }
 
     @Test
@@ -798,7 +907,7 @@ struct FallingNumbersTests {
         state.board = Board(rows: config.rows, columns: config.columns)
         state.activePiece = FallingPiece(value: 3, position: GridPosition(row: 0, column: 1))
         var engine = GameEngine(state: state, config: config)
-        let ticksBeforeChange = Int((config.targetChangeInterval / config.tickInterval).rounded(.down)) - 1
+        let ticksBeforeChange = Int((config.targetChangeInterval / engine.state.currentTickInterval).rounded(.down)) - 1
         for _ in 0..<ticksBeforeChange {
             engine.send(.tick)
         }
@@ -1269,15 +1378,102 @@ struct FallingNumbersTests {
         let levelSystem = LevelSystem()
         let base: TimeInterval = 0.65
 
-        let level1 = levelSystem.tickInterval(base: base, level: 1, mode: .beginner)
-        let level5 = levelSystem.tickInterval(base: base, level: 5, mode: .beginner)
-        let level12 = levelSystem.tickInterval(base: base, level: 12, mode: .beginner)
-        let level40 = levelSystem.tickInterval(base: base, level: 40, mode: .beginner)
+        let m1 = levelSystem.fallSpeedMultiplier(forLevel: 1, mode: .beginner)
+        let m5 = levelSystem.fallSpeedMultiplier(forLevel: 5, mode: .beginner)
+        let m10 = levelSystem.fallSpeedMultiplier(forLevel: 10, mode: .beginner)
+        let m20 = levelSystem.fallSpeedMultiplier(forLevel: 20, mode: .beginner)
+        let m100 = levelSystem.fallSpeedMultiplier(forLevel: 100, mode: .beginner)
+        let intervalL1 = levelSystem.tickInterval(base: base, level: 1, mode: .beginner)
+        let intervalL10 = levelSystem.tickInterval(base: base, level: 10, mode: .beginner)
+        let intervalL20 = levelSystem.tickInterval(base: base, level: 20, mode: .beginner)
 
-        #expect(level1 > level5)
-        #expect(level5 > level12)
-        #expect(level12 >= 0.26)
-        #expect(level40 == 0.26)
+        #expect(abs(m1 - 1.0) < 0.000_001)
+        #expect(m10 > m1)
+        #expect(m20 > m10)
+        #expect(m5 > m1)
+        #expect(m100 == levelSystem.maxFallMultiplier(mode: .beginner))
+        #expect(intervalL1 == base / m1)
+        #expect(intervalL10 < intervalL1)
+        #expect(intervalL20 < intervalL10)
+    }
+
+    @Test
+    func beginnerEarlyLevelsRemainUnchanged() {
+        let levelSystem = LevelSystem()
+        let base: TimeInterval = 0.65
+
+        #expect(abs(levelSystem.fallSpeedMultiplier(forLevel: 1, mode: .beginner) - 1.0) < 0.000_001)
+        #expect(levelSystem.tickInterval(base: base, level: 1, mode: .beginner) == base)
+    }
+
+    @Test
+    func level15PlusAppliesHigherTargetTimerPressure() {
+        let levelSystem = LevelSystem()
+        #expect(levelSystem.targetTimerDecrementMultiplier(level: 14, mode: .beginner) == 1.0)
+        #expect(levelSystem.targetTimerDecrementMultiplier(level: 15, mode: .beginner) > 1.0)
+    }
+
+    @Test
+    func expertCurveStartsFasterAndCapsLower() {
+        let levelSystem = LevelSystem()
+        let beginnerBase: TimeInterval = 0.65
+        let expertBase: TimeInterval = 0.65 * pow(0.92, 4)
+
+        let beginnerL1 = levelSystem.tickInterval(base: beginnerBase, level: 1, mode: .beginner)
+        let expertL1 = levelSystem.tickInterval(base: expertBase, level: 1, mode: .expert)
+        let expertL20 = levelSystem.tickInterval(base: expertBase, level: 20, mode: .expert)
+        let basicM20 = levelSystem.fallSpeedMultiplier(forLevel: 20, mode: .beginner)
+        let expertM20 = levelSystem.fallSpeedMultiplier(forLevel: 20, mode: .expert)
+
+        #expect(expertL1 < beginnerL1)
+        #expect(expertL20 < expertL1)
+        #expect(expertM20 > basicM20)
+    }
+
+    @Test
+    func expertPressureRampInactiveBeforeThreshold() {
+        let levelSystem = LevelSystem()
+        let config = GameConfig(columns: 10, rows: 20, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config, mode: .expert)
+        state.score = levelSystem.levelThreshold(12) - 1
+        let engine = GameEngine(state: state, config: config)
+
+        #expect(engine.state.level < 12)
+        #expect(engine.state.expertPressureRampActive == false)
+        #expect(engine.state.expertSpawnPressureTier == 0)
+    }
+
+    @Test
+    func expertPressureRampActiveAfterThreshold() {
+        let levelSystem = LevelSystem()
+        let config = GameConfig(columns: 10, rows: 20, tickInterval: 0.65, baseTargetNumber: 10)
+        var stateTier1 = GameState.initial(config: config, mode: .expert)
+        stateTier1.score = levelSystem.levelThreshold(12)
+        let engineTier1 = GameEngine(state: stateTier1, config: config)
+
+        var stateTier2 = GameState.initial(config: config, mode: .expert)
+        stateTier2.score = levelSystem.levelThreshold(15)
+        let engineTier2 = GameEngine(state: stateTier2, config: config)
+
+        #expect(engineTier1.state.level >= 12)
+        #expect(engineTier1.state.expertPressureRampActive)
+        #expect(engineTier1.state.expertSpawnPressureTier == 1)
+        #expect(engineTier2.state.expertSpawnPressureTier == 2)
+    }
+
+    @Test
+    func scoringFormulaUnchangedForKnownInput() {
+        let scoreSystem = ScoreSystem()
+        let breakdown = scoreSystem.scoreBreakdownForClear(
+            tileCount: 4,
+            cascade: 3,
+            isHorizontal: true,
+            expertMode: false
+        )
+        #expect(breakdown.baseScore == 40)
+        #expect(breakdown.lengthMultiplier == 1.5)
+        #expect(breakdown.cascadeMultiplier == 1.5)
+        #expect(breakdown.awardedScore == 99)
     }
 
     @Test

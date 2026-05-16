@@ -33,6 +33,11 @@ struct GameState {
     var powerUpEventToken: Int
     var lastSumClearEvent: SumClearEvent?
     var sumClearEventToken: Int
+    var expertPressureRampActive: Bool
+    var expertSpawnPressureTier: Int
+    var expertBurstRemaining: Int
+    var expertBurstColumn: Int?
+    var telemetry: SessionTelemetry
     var currentTickInterval: TimeInterval
     var isGameOver: Bool
     var isPaused: Bool
@@ -75,6 +80,11 @@ struct GameState {
             powerUpEventToken: 0,
             lastSumClearEvent: nil,
             sumClearEventToken: 0,
+            expertPressureRampActive: false,
+            expertSpawnPressureTier: 0,
+            expertBurstRemaining: 0,
+            expertBurstColumn: nil,
+            telemetry: .initial,
             currentTickInterval: config.tickInterval,
             isGameOver: false,
             isPaused: false

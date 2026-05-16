@@ -1,6 +1,6 @@
 import Foundation
 
-enum PowerUpType: String, Equatable, Hashable {
+enum PowerUpType: String, Equatable, Hashable, CaseIterable {
     case rowClear
     case columnClear
     case reorder
@@ -11,4 +11,3 @@ struct PowerUpActivation: Equatable, Hashable {
     let row: Int?
     let column: Int?
 }
-
