@@ -1,14 +1,24 @@
 import SpriteKit
 
 final class BoardNode: SKNode {
+    private enum VisualTiming {
+        static let beginnerHighlight: TimeInterval = 0.52
+        static let expertHighlight: TimeInterval = 0.27
+        static let clearDuration: TimeInterval = 0.22
+    }
+
     private var tileNodes: [GridPosition: TileNode] = [:]
     private let boardBackgroundNode = SKShapeNode()
     private let gridNode = SKNode()
     private var cellSize: CGFloat = 0
     private var boardSize: CGSize = .zero
     private var previousActivePositions: Set<GridPosition> = []
-    private var previousBoardValues: [GridPosition: Int] = [:]
+    private var previousBoardKinds: [GridPosition: TileKind] = [:]
     private var lastGeometryKey: String?
+    private var lastPowerUpEventToken: Int = -1
+#if DEBUG
+    private static let enableRenderWarnings = true
+#endif
 
     override init() {
         super.init()
@@ -41,17 +51,33 @@ final class BoardNode: SKNode {
             lastGeometryKey = geometryKey
         }
 
-        let occupiedPositions = state.board.allOccupiedPositions()
-        let occupied = Set(occupiedPositions)
-        var currentBoardValues: [GridPosition: Int] = [:]
-        currentBoardValues.reserveCapacity(occupiedPositions.count)
-        for position in occupiedPositions {
-            if let value = state.board.cell(at: position)?.value {
-                currentBoardValues[position] = value
+        if state.powerUpEventToken != lastPowerUpEventToken,
+           let activation = state.lastPowerUpActivation {
+            lastPowerUpEventToken = state.powerUpEventToken
+            switch activation.type {
+            case .rowClear:
+                if let row = activation.row { playRowClearSweep(row: row) }
+            case .columnClear:
+                if let column = activation.column { playColumnClearSweep(column: column) }
+            case .reorder:
+                playReorderHint()
             }
         }
 
-        let movedPairs = detectColumnGravityMoves(from: previousBoardValues, to: currentBoardValues, columns: state.board.columns)
+        let occupiedPositions = state.board.allOccupiedPositions()
+        let occupied = Set(occupiedPositions)
+        var currentBoardKinds: [GridPosition: TileKind] = [:]
+        currentBoardKinds.reserveCapacity(occupiedPositions.count)
+        for position in occupiedPositions {
+            if let kind = state.board.cell(at: position)?.kind {
+                currentBoardKinds[position] = kind
+            }
+        }
+
+        let highlightDuration = state.gameMode == .beginner ? VisualTiming.beginnerHighlight : VisualTiming.expertHighlight
+        let clearDuration = VisualTiming.clearDuration
+
+        let movedPairs = detectColumnGravityMoves(from: previousBoardKinds, to: currentBoardKinds, columns: state.board.columns)
         for (from, to) in movedPairs {
             guard let node = tileNodes[from], tileNodes[to] == nil else { continue }
             tileNodes.removeValue(forKey: from)
@@ -59,10 +85,8 @@ final class BoardNode: SKNode {
             node.removeAction(forKey: "move")
             let dropDistance = abs(CGFloat(to.row - from.row)) * cellSize
             let duration = max(0.08, min(0.12, Double(dropDistance / max(1, cellSize)) * 0.04))
-            node.run(
-                SKAction.move(to: pointFor(position: to), duration: duration).withTimingMode(.easeOut),
-                withKey: "move"
-            )
+            let moveAction = SKAction.move(to: pointFor(position: to), duration: duration).withTimingMode(.easeOut)
+            node.run(moveAction, withKey: "move")
         }
 
         var needed = occupied
@@ -83,31 +107,51 @@ final class BoardNode: SKNode {
             tileNodes.removeValue(forKey: previousActive)
             tileNodes[activePosition] = activeNode
         }
+        if let previousActive,
+           let activePosition,
+           previousActive != activePosition,
+           let oldNode = tileNodes[previousActive],
+           tileNodes[activePosition] != nil {
+            // Ensure only one active node survives to avoid ghosting.
+            oldNode.removeAllActions()
+            oldNode.removeFromParent()
+            tileNodes.removeValue(forKey: previousActive)
+        }
 
         for (position, node) in tileNodes where !needed.contains(position) {
             tileNodes.removeValue(forKey: position)
-            // Clear feedback: short warm pulse + scale up + fade out.
-            node.run(SKAction.sequence([
-                SKAction.group([
-                    SKAction.scale(to: 1.06, duration: 0.08),
-                    SKAction.fadeAlpha(to: 1.0, duration: 0.06)
-                ]),
-                SKAction.group([
-                    SKAction.scale(to: 0.86, duration: 0.13),
-                    SKAction.fadeOut(withDuration: 0.13)
-                ]),
-                SKAction.removeFromParent()
-            ]))
+            // Safer clear strategy:
+            // remove node from live board map immediately and animate it as independent snapshot.
+            node.removeAllActions()
+            node.removeAction(forKey: "move")
+            node.zPosition = 20
+            node.name = "clearing_snapshot"
+            node.runClearAnimationAndRemove(highlightDuration: highlightDuration, clearDuration: clearDuration)
+#if DEBUG
+            if Self.enableRenderWarnings {
+                // Snapshot must disappear quickly; warn if it leaks.
+                node.run(
+                    SKAction.sequence([
+                        SKAction.wait(forDuration: highlightDuration + clearDuration + 0.9),
+                        SKAction.run { [weak node] in
+                            if let node, node.parent != nil {
+                                print("[RENDER-WARN] stale clearing snapshot > expected lifetime")
+                            }
+                        }
+                    ])
+                )
+            }
+#endif
         }
 
         for position in needed {
-            let value: Int
+            let kind: TileKind
             let isActive: Bool
             if let active = state.activePiece, active.position == position {
-                value = active.value
+                kind = active.kind
                 isActive = true
-            } else if let cellValue = state.board.cell(at: position)?.value {
-                value = cellValue
+            } else if let cellKind = state.board.cell(at: position)?.kind {
+                kind = cellKind
                 isActive = false
             } else {
                 continue
@@ -116,7 +160,7 @@ final class BoardNode: SKNode {
             let point = pointFor(position: position)
             if let node = tileNodes[position] {
                 let wasActive = previousActivePositions.contains(position)
-                node.update(value: value, size: cellSize * 0.92, isActive: isActive)
+                node.update(kind: kind, size: cellSize * 0.92, isActive: isActive)
                 if node.position != point {
                     node.removeAction(forKey: "move")
                     let distanceCells = max(1, Int(ceil(hypot(node.position.x - point.x, node.position.y - point.y) / max(1, cellSize))))
@@ -130,10 +174,8 @@ final class BoardNode: SKNode {
                     if hypot(node.position.x - point.x, node.position.y - point.y) < cellSize * 0.12 {
                         node.position = point
                     } else {
-                        node.run(
-                            SKAction.move(to: point, duration: duration).withTimingMode(.easeOut),
-                            withKey: "move"
-                        )
+                        let moveAction = SKAction.move(to: point, duration: duration).withTimingMode(.easeOut)
+                        node.run(moveAction, withKey: "move")
                     }
                 }
                 if wasActive, !isActive {
@@ -145,12 +187,13 @@ final class BoardNode: SKNode {
                     ]))
                 }
             } else {
-                let node = TileNode(value: value, size: cellSize * 0.92, isActive: isActive)
+                let node = TileNode(kind: kind, size: cellSize * 0.92, isActive: isActive)
                 node.position = point
                 node.alpha = 0
                 node.setScale(0.82)
                 addChild(node)
                 tileNodes[position] = node
+                node.removeAction(forKey: "move")
                 node.run(
                     SKAction.group([
                         SKAction.fadeIn(withDuration: 0.09),
@@ -165,14 +208,95 @@ final class BoardNode: SKNode {
         } else {
             previousActivePositions.removeAll()
         }
-        previousBoardValues = currentBoardValues
+        previousBoardKinds = currentBoardKinds
+
+#if DEBUG
+        if Self.enableRenderWarnings {
+            if let active = state.activePiece, tileNodes[active.position] == nil {
+                print("[RENDER-WARN] active tile node missing at r\(active.position.row)c\(active.position.column)")
+            }
+
+            var keyCounts: [String: Int] = [:]
+            for (position, _) in tileNodes {
+                let key = "\(position.row):\(position.column)"
+                keyCounts[key, default: 0] += 1
+            }
+            if keyCounts.values.contains(where: { $0 > 1 }) {
+                print("[RENDER-WARN] duplicate tileNodes mapped to same board position")
+            }
+        }
+#endif
+    }
+
+    private func neededPositionSet(state: GameState) -> Set<GridPosition> {
+        var needed = Set(state.board.allOccupiedPositions())
+        if let active = state.activePiece {
+            needed.insert(active.position)
+        }
+        return needed
     }
 
     // Power-up animation hooks for v1 integration points.
-    // They are intentionally lightweight and can be invoked by future visual event payloads.
-    func playRowClearSweep(row: Int) {}
-    func playColumnClearSweep(column: Int) {}
-    func playReorderHint() {}
+    func playRowClearSweep(row: Int) {
+        guard row >= 0 else { return }
+        let y = pointFor(position: GridPosition(row: row, column: 0)).y
+        let width = boardSize.width * 0.92
+        let height = max(6, cellSize * 0.22)
+        let sweep = SKShapeNode(rectOf: CGSize(width: width, height: height), cornerRadius: height * 0.5)
+        sweep.fillColor = UIColor(red: 1.0, green: 0.80, blue: 0.36, alpha: 0.62)
+        sweep.strokeColor = .clear
+        sweep.blendMode = .alpha
+        sweep.position = CGPoint(x: 0, y: y)
+        sweep.zPosition = 9
+        sweep.alpha = 0
+        addChild(sweep)
+
+        let pulse = SKAction.group([
+            SKAction.fadeAlpha(to: 0.9, duration: 0.06),
+            SKAction.scaleX(to: 1.02, duration: 0.06)
+        ])
+        let fade = SKAction.fadeOut(withDuration: 0.12)
+        sweep.run(SKAction.sequence([pulse, fade, .removeFromParent()]))
+    }
+
+    func playColumnClearSweep(column: Int) {
+        guard column >= 0 else { return }
+        let x = pointFor(position: GridPosition(row: 0, column: column)).x
+        let width = max(6, cellSize * 0.22)
+        let height = boardSize.height * 0.92
+        let sweep = SKShapeNode(rectOf: CGSize(width: width, height: height), cornerRadius: width * 0.5)
+        sweep.fillColor = UIColor(red: 0.50, green: 0.86, blue: 1.0, alpha: 0.6)
+        sweep.strokeColor = .clear
+        sweep.blendMode = .alpha
+        sweep.position = CGPoint(x: x, y: 0)
+        sweep.zPosition = 9
+        sweep.alpha = 0
+        addChild(sweep)
+
+        let pulse = SKAction.group([
+            SKAction.fadeAlpha(to: 0.88, duration: 0.06),
+            SKAction.scaleY(to: 1.02, duration: 0.06)
+        ])
+        let fade = SKAction.fadeOut(withDuration: 0.12)
+        sweep.run(SKAction.sequence([pulse, fade, .removeFromParent()]))
+    }
+
+    func playReorderHint() {
+        let action = SKAction.sequence([
+            SKAction.group([
+                SKAction.scale(to: 1.04, duration: 0.07),
+                SKAction.rotate(byAngle: 0.06, duration: 0.07)
+            ]),
+            SKAction.group([
+                SKAction.scale(to: 1.0, duration: 0.09),
+                SKAction.rotate(toAngle: 0, duration: 0.09)
+            ])
+        ])
+        for node in tileNodes.values {
+            node.removeAction(forKey: "reorder_hint")
+            node.run(action, withKey: "reorder_hint")
+        }
+    }
 
     private func drawBoardBackground() {
         let rect = CGRect(
@@ -230,8 +354,8 @@ final class BoardNode: SKNode {
     }
 
     private func detectColumnGravityMoves(
-        from old: [GridPosition: Int],
-        to new: [GridPosition: Int],
+        from old: [GridPosition: TileKind],
+        to new: [GridPosition: TileKind],
         columns: Int
     ) -> [(from: GridPosition, to: GridPosition)] {
         guard !old.isEmpty, !new.isEmpty else { return [] }

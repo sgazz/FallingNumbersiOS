@@ -1,6 +1,9 @@
 import Foundation
 
 struct LevelSystem {
+    private let basicMaxFallSpeedMultiplier = 3.5
+    private let expertMaxFallSpeedMultiplier = 4.25
+
     func levelThreshold(_ level: Int) -> Int {
         guard level > 1 else { return 0 }
         let raw = 400.0 * pow(Double(level - 1), 1.45)
@@ -23,7 +26,11 @@ struct LevelSystem {
         return min(1.0, max(0.0, Double(score - currentThreshold) / Double(span)))
     }
 
-    func targetRange(forCycle cycle: Int) -> ClosedRange<Int> {
+    func targetRange(forCycle cycle: Int, mode: GameMode) -> ClosedRange<Int> {
+        if mode == .expert {
+            return 5...20
+        }
+
         switch cycle {
         case ...2:
             return 8...12
@@ -34,8 +41,23 @@ struct LevelSystem {
         }
     }
 
-    func targetNumber(forCycle cycle: Int, previousTarget: Int, repeatCount: Int) -> Int {
-        let range = targetRange(forCycle: cycle)
+    func targetNumber(forCycle cycle: Int, previousTarget: Int, repeatCount: Int, mode: GameMode) -> Int {
+        let range = targetRange(forCycle: cycle, mode: mode)
+        if mode == .expert {
+            var candidate = Int.random(in: range)
+            if candidate == previousTarget || abs(candidate - previousTarget) <= 1 {
+                // Expert volatility: avoid tiny/no-op target shifts where possible.
+                let upward = min(range.upperBound, previousTarget + 2)
+                let downward = max(range.lowerBound, previousTarget - 2)
+                if upward != previousTarget {
+                    candidate = upward
+                } else if downward != previousTarget {
+                    candidate = downward
+                }
+            }
+            return candidate
+        }
+
         let jumpCap: Int
         switch cycle {
         case ...2:
@@ -72,8 +94,29 @@ struct LevelSystem {
         return candidate
     }
 
-    func tickInterval(base: TimeInterval, level: Int) -> TimeInterval {
-        let reduced = base * pow(0.92, Double(max(0, level - 1)))
-        return max(0.26, reduced)
+    func fallSpeedMultiplier(forLevel level: Int, mode: GameMode) -> Double {
+        let normalizedLevel = max(1, level)
+        if mode == .expert {
+            let raw = 1.15 + pow(Double(normalizedLevel - 1), 1.20) * 0.095
+            return min(expertMaxFallSpeedMultiplier, raw)
+        }
+        let raw = 1.0 + pow(Double(normalizedLevel - 1), 1.15) * 0.075
+        return min(basicMaxFallSpeedMultiplier, raw)
+    }
+
+    func tickInterval(base: TimeInterval, level: Int, mode: GameMode) -> TimeInterval {
+        let multiplier = fallSpeedMultiplier(forLevel: level, mode: mode)
+        return base / multiplier
+    }
+
+    func targetTimerDecrementMultiplier(level: Int, mode: GameMode) -> Double {
+        if mode == .expert {
+            return level >= 15 ? 1.22 : 1.08
+        }
+        return level >= 15 ? 1.08 : 1.0
+    }
+
+    func maxFallMultiplier(mode: GameMode) -> Double {
+        mode == .expert ? expertMaxFallSpeedMultiplier : basicMaxFallSpeedMultiplier
     }
 }

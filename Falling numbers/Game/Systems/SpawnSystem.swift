@@ -1,16 +1,48 @@
 import Foundation
 
 struct SpawnSystem {
-    func makePiece(on board: Board, value: Int) -> FallingPiece? {
-        let preferredColumn = nextSpawnColumn(columns: board.columns)
+    func makePiece(
+        on board: Board,
+        kind: TileKind,
+        mode: GameMode = .beginner,
+        pressureTier: Int = 0,
+        preferredColumn overrideColumn: Int? = nil
+    ) -> FallingPiece? {
+        let preferredColumn = overrideColumn ?? nextSpawnColumn(columns: board.columns, mode: mode, pressureTier: pressureTier)
         if let column = bestAvailableSpawnColumn(on: board, preferredColumn: preferredColumn) {
             let spawn = GridPosition(row: 0, column: column)
-            return FallingPiece(value: value, position: spawn)
+            return FallingPiece(kind: kind, position: spawn)
         }
         return nil
     }
 
-    func nextValue(level: Int) -> Int {
+    func makePiece(on board: Board, value: Int) -> FallingPiece? {
+        makePiece(on: board, kind: .number(value))
+    }
+
+    func nextTileKind(level: Int, mode: GameMode, specialSpawnChance: Double) -> TileKind {
+        let allowsSpecial: Bool
+        if mode == .expert {
+            allowsSpecial = level >= 3
+        } else {
+            allowsSpecial = level >= 6
+        }
+
+        if allowsSpecial, Double.random(in: 0...1) < specialSpawnChance {
+            let roll = Double.random(in: 0...1)
+            if roll < 0.4 { return .rowClear }
+            if roll < 0.8 { return .columnClear }
+            return .reorder
+        }
+
+        return .number(nextValue(level: level, mode: mode))
+    }
+
+    func nextValue(level: Int, mode: GameMode) -> Int {
+        if mode == .expert {
+            return Int.random(in: 1...9)
+        }
+
         // Board pressure tuning: keep early game approachable,
         // then gradually lift value floor and range for denser arithmetic decisions.
         let range: ClosedRange<Int>
@@ -27,9 +59,9 @@ struct SpawnSystem {
         return Int.random(in: range)
     }
 
-    func nextSpawnColumn(columns: Int) -> Int {
+    func nextSpawnColumn(columns: Int, mode: GameMode = .beginner, pressureTier: Int = 0) -> Int {
         guard columns > 0 else { return 0 }
-        let weights = spawnWeights(columns: columns)
+        let weights = spawnWeights(columns: columns, mode: mode, pressureTier: pressureTier)
         let total = max(1, weights.reduce(0, +))
         var roll = Int.random(in: 0..<total)
         for (index, weight) in weights.enumerated() {
@@ -59,9 +91,34 @@ struct SpawnSystem {
         return nil
     }
 
-    private func spawnWeights(columns: Int) -> [Int] {
+    func expertBurstLength(pressureTier: Int, occupancyPercent: Int) -> Int {
+        guard pressureTier > 0 else { return 1 }
+        let roll = Int.random(in: 0..<100)
+        if pressureTier >= 2 {
+            if occupancyPercent < 30 {
+                if roll < 12 { return 3 }
+                if roll < 50 { return 2 }
+                return 1
+            } else {
+                if roll < 8 { return 3 }
+                if roll < 38 { return 2 }
+                return 1
+            }
+        }
+        if roll < 28 { return 2 }
+        return 1
+    }
+
+    private func spawnWeights(columns: Int, mode: GameMode, pressureTier: Int) -> [Int] {
         if columns == 10 {
-            // Slight center preference without center-lock repetition.
+            if mode == .expert, pressureTier >= 2 {
+                // Less forgiving: pushes more traffic into central columns.
+                return [3, 5, 9, 16, 22, 22, 16, 9, 5, 3]
+            }
+            if mode == .expert, pressureTier == 1 {
+                return [4, 7, 11, 16, 20, 20, 16, 11, 7, 4]
+            }
+            // Beginner / base profile.
             return [5, 8, 12, 15, 18, 18, 15, 12, 8, 5]
         }
 

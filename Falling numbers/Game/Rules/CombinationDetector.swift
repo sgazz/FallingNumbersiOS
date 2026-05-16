@@ -16,7 +16,7 @@ struct CombinationDetector {
 
                 for column in startColumn..<board.columns {
                     let position = GridPosition(row: row, column: column)
-                    guard let value = board.cell(at: position)?.value else { break }
+                    guard let value = board.cell(at: position)?.kind.numericValue else { break }
                     sum += value
                     group.append(position)
 
@@ -36,7 +36,7 @@ struct CombinationDetector {
 
                 for row in startRow..<board.rows {
                     let position = GridPosition(row: row, column: column)
-                    guard let value = board.cell(at: position)?.value else { break }
+                    guard let value = board.cell(at: position)?.kind.numericValue else { break }
                     sum += value
                     group.append(position)
 

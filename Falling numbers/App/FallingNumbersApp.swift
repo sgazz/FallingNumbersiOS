@@ -7,7 +7,7 @@ struct FallingNumbersApp: App {
 
     var body: some Scene {
         WindowGroup {
-            GameView(viewModel: viewModel)
+            AppRootView(viewModel: viewModel)
                 .onChange(of: scenePhase) { _, phase in
                     switch phase {
                     case .background, .inactive:

@@ -3,6 +3,7 @@ import Foundation
 enum GameAction {
     case start
     case newGame
+    case setMode(GameMode)
     case togglePause
     case moveLeft
     case moveRight
