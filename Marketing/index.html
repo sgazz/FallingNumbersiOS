@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fall, Number… Fall!</title>
+  <meta name="description" content="A colorful falling-numbers puzzle game about addition, timing, and smart placement." />
+
+  <style>
+    :root {
+      --cream: #fff4dc;
+      --latte: #f2d6a2;
+      --orange: #ff9f1c;
+      --pink: #ff4f8b;
+      --purple: #7b61ff;
+      --cyan: #24c6dc;
+      --green: #5ac85a;
+      --espresso: #3a2418;
+      --soft: rgba(255,255,255,0.62);
+      --stroke: rgba(58,36,24,0.16);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+      color: var(--espresso);
+      background:
+        radial-gradient(circle at 15% 20%, rgba(255, 79, 139, 0.22), transparent 30%),
+        radial-gradient(circle at 85% 18%, rgba(36, 198, 220, 0.24), transparent 32%),
+        radial-gradient(circle at 50% 85%, rgba(123, 97, 255, 0.20), transparent 34%),
+        linear-gradient(135deg, var(--cream), var(--latte));
+      min-height: 100vh;
+    }
+
+    .page {
+      width: min(1040px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 48px 0 40px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 28px;
+      align-items: center;
+      text-align: center;
+      padding: 32px 20px;
+    }
+
+    .app-icon {
+      width: 128px;
+      height: 128px;
+      margin: 0 auto;
+      border-radius: 32px;
+      background:
+        linear-gradient(135deg, var(--orange), var(--pink), var(--purple), var(--cyan));
+      box-shadow: 0 24px 60px rgba(58, 36, 24, 0.22);
+      display: grid;
+      place-items: center;
+      color: white;
+      font-weight: 900;
+      font-size: 44px;
+      letter-spacing: -2px;
+      border: 4px solid rgba(255,255,255,0.55);
+    }
+
+    h1 {
+      font-size: clamp(42px, 7vw, 78px);
+      line-height: 0.95;
+      letter-spacing: -0.06em;
+      margin: 0;
+    }
+
+    .subtitle {
+      max-width: 680px;
+      margin: 18px auto 0;
+      font-size: clamp(18px, 2.5vw, 24px);
+      line-height: 1.35;
+      color: rgba(58,36,24,0.78);
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 22px;
+    }
+
+    .badge {
+      padding: 9px 13px;
+      border-radius: 999px;
+      background: var(--soft);
+      border: 1px solid var(--stroke);
+      font-weight: 700;
+      font-size: 14px;
+      backdrop-filter: blur(12px);
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 26px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.56);
+      border: 1px solid var(--stroke);
+      border-radius: 28px;
+      padding: 22px;
+      box-shadow: 0 18px 50px rgba(58,36,24,0.10);
+      backdrop-filter: blur(14px);
+    }
+
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 22px;
+      letter-spacing: -0.03em;
+    }
+
+    .card p, .card li {
+      font-size: 16px;
+      line-height: 1.55;
+      color: rgba(58,36,24,0.78);
+    }
+
+    ul {
+      margin: 10px 0 0;
+      padding-left: 20px;
+    }
+
+    .how {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .example {
+      border-radius: 24px;
+      padding: 18px;
+      background: rgba(255,255,255,0.58);
+      border: 1px solid var(--stroke);
+      text-align: center;
+    }
+
+    .tiles {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin: 12px 0;
+    }
+
+    .tiles.vertical {
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .tile {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      color: white;
+      font-weight: 900;
+      font-size: 22px;
+      box-shadow: 0 10px 22px rgba(58,36,24,0.16);
+    }
+
+    .t1 { background: var(--orange); }
+    .t2 { background: var(--pink); }
+    .t3 { background: var(--purple); }
+    .t4 { background: var(--cyan); }
+    .t5 { background: var(--green); }
+
+    .sum {
+      font-weight: 900;
+      font-size: 20px;
+      margin-top: 8px;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 34px;
+      padding: 24px;
+      color: rgba(58,36,24,0.70);
+      font-size: 14px;
+    }
+
+    a {
+      color: var(--purple);
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 780px) {
+      .cards {
+        grid-template-columns: 1fr;
+      }
+
+      .how {
+        grid-template-columns: 1fr;
+      }
+
+      .page {
+        padding-top: 28px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="app-icon">FNF</div>
+
+      <div>
+        <h1>Fall, Number… Fall!</h1>
+        <p class="subtitle">
+          A colorful falling-numbers puzzle game where tiles become sums.
+          Match horizontal or vertical numbers, clear the board, and chase your best score.
+        </p>
+
+        <div class="badge-row">
+          <span class="badge">Addition puzzle</span>
+          <span class="badge">Beginner & Expert modes</span>
+          <span class="badge">Colorful learning play</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="cards">
+      <article class="card">
+        <h2>About the game</h2>
+        <p>
+          Guide falling number tiles onto the board and create sums that match the current target.
+          When the numbers add up correctly, they disappear.
+        </p>
+      </article>
+
+      <article class="card">
+        <h2>Features</h2>
+        <ul>
+          <li>Horizontal and vertical sum matching</li>
+          <li>Beginner mode for learning</li>
+          <li>Expert mode for a faster challenge</li>
+          <li>Power-ups: row clear, column clear, reorder</li>
+          <li>Cascades, perfect clears, and best scores</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h2>Support</h2>
+        <p>
+          Need help, have feedback, or want to report a problem?
+        </p>
+        <p>
+          Contact: <a href="mailto:stanko.gazibaric@gmail.com">stanko.gazibaric@gmail.com</a>
+        </p>
+      </article>
+    </section>
+
+    <section class="card" style="margin-top:16px;">
+      <h2>How to play</h2>
+      <p>
+        Move the falling tile left or right with horizontal swipes.
+        Swipe down or double-tap to drop faster.
+        Make the numbers add up to the target.
+      </p>
+
+      <div class="how">
+        <div class="example">
+          <strong>Horizontal example</strong>
+          <div class="tiles">
+            <div class="tile t1">4</div>
+            <div class="tile t2">3</div>
+            <div class="tile t3">5</div>
+          </div>
+          <div class="sum">4 + 3 + 5 = 12</div>
+        </div>
+
+        <div class="example">
+          <strong>Vertical example</strong>
+          <div class="tiles vertical">
+            <div class="tile t4">7</div>
+            <div class="tile t5">2</div>
+            <div class="tile t1">3</div>
+          </div>
+          <div class="sum">7 + 2 + 3 = 12</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:16px;">
+      <h2>Privacy</h2>
+      <p>
+        Fall, Number… Fall! does not require login, does not require an internet connection,
+        does not include user-generated content, and does not collect personal information.
+      </p>
+    </section>
+
+    <footer class="footer">
+      © 2026 Stanko Gazibaric. Fall, Number… Fall! for iOS.
+    </footer>
+  </main>
+</body>
+</html>
