@@ -3,22 +3,20 @@ import Foundation
 struct GravitySystem {
     mutating func collapse(board: inout Board) {
         for column in 0..<board.columns {
-            var values: [Int] = []
-            for row in (0..<board.rows).reversed() {
-                let position = GridPosition(row: row, column: column)
-                if let value = board.cell(at: position)?.value {
-                    values.append(value)
-                }
-            }
-
             var writeRow = board.rows - 1
-            for value in values {
-                board.setCell(Cell(value: value), at: GridPosition(row: writeRow, column: column))
+
+            for row in stride(from: board.rows - 1, through: 0, by: -1) {
+                let readPosition = GridPosition(row: row, column: column)
+                guard let cell = board.cell(at: readPosition) else { continue }
+
+                if writeRow != row {
+                    board.setCell(cell, at: GridPosition(row: writeRow, column: column))
+                }
                 writeRow -= 1
             }
 
             if writeRow >= 0 {
-                for row in 0...writeRow {
+                for row in stride(from: writeRow, through: 0, by: -1) {
                     board.setCell(nil, at: GridPosition(row: row, column: column))
                 }
             }

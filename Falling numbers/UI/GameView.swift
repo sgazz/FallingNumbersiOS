@@ -10,8 +10,15 @@ struct GameView: View {
     @State private var cascadePulse = false
     @State private var targetPulse = false
     @State private var perfectClearVisible = false
+    @State private var cascadeBannerText: String?
+    @State private var powerUpBannerText: String?
+    @State private var sumBannerText: String?
+    @State private var sumBannerX: CGFloat = 0.5
+    @State private var sumBannerY: CGFloat = 0.5
+    @State private var sumBannerRise: CGFloat = 0
     @State private var boardOffsetY: CGFloat = 0
     @State private var boardScale: CGFloat = 1.0
+    @State private var transientBoardGlow: Double = 0
 #if DEBUG
     @State private var controlsFrame: CGRect = .zero
     @State private var boardFrame: CGRect = .zero
@@ -69,7 +76,11 @@ struct GameView: View {
                     .frame(width: boardWidth, height: boardHeight)
                     .overlay {
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.orange.opacity(min(0.16, Double(max(0, viewModel.state.cascadeCount - 1)) * 0.03)))
+                            .fill(
+                                Color.orange.opacity(
+                                    min(0.16, Double(max(0, viewModel.state.cascadeCount - 1)) * 0.03) + transientBoardGlow
+                                )
+                            )
                             .allowsHitTesting(false)
                     }
                     .overlay {
@@ -77,7 +88,7 @@ struct GameView: View {
                     }
                     .overlay(alignment: .center) {
                         if perfectClearVisible {
-                            Text("PERFECT CLEAR")
+                            Text("Perfect Clear!")
                                 .font(.title3.weight(.heavy))
                                 .tracking(1.0)
                                 .foregroundStyle(NeonTheme.textPrimary)
@@ -90,6 +101,61 @@ struct GameView: View {
                                 )
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                                 .transition(.opacity.combined(with: .scale(scale: 0.94)))
+                        }
+                    }
+                    .overlay(alignment: .top) {
+                        if let cascadeBannerText {
+                            Text(cascadeBannerText)
+                                .font(.headline.weight(.heavy))
+                                .foregroundStyle(NeonTheme.textPrimary)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
+                                .background(NeonTheme.chipFill.opacity(0.97))
+                                .overlay(
+                                    Capsule()
+                                        .stroke(NeonTheme.chipStroke, lineWidth: 0.9)
+                                )
+                                .clipShape(Capsule())
+                                .padding(.top, 10)
+                                .transition(.opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.95)))
+                        }
+                    }
+                    .overlay(alignment: .center) {
+                        if let powerUpBannerText {
+                            Text(powerUpBannerText)
+                                .font(.headline.weight(.heavy))
+                                .foregroundStyle(NeonTheme.textPrimary)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(NeonTheme.chipFill.opacity(0.98))
+                                .overlay(
+                                    Capsule()
+                                        .stroke(NeonTheme.chipStroke, lineWidth: 1)
+                                )
+                                .clipShape(Capsule())
+                                .transition(.opacity.combined(with: .scale(scale: 0.93)))
+                        }
+                    }
+                    .overlay {
+                        if let sumBannerText {
+                            GeometryReader { geo in
+                                Text(sumBannerText)
+                                    .font(.headline.weight(.heavy))
+                                    .foregroundStyle(NeonTheme.textPrimary)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 7)
+                                    .background(NeonTheme.chipFill.opacity(0.98))
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(NeonTheme.chipStroke, lineWidth: 1)
+                                    )
+                                    .clipShape(Capsule())
+                                    .position(
+                                        x: max(46, min(geo.size.width - 46, geo.size.width * sumBannerX)),
+                                        y: max(26, min(geo.size.height - 26, geo.size.height * sumBannerY + sumBannerRise))
+                                    )
+                            }
+                            .transition(.opacity)
                         }
                     }
                     .overlay {
@@ -190,6 +256,12 @@ struct GameView: View {
         .onChange(of: viewModel.perfectClearToken) { _, _ in
             showPerfectClearFeedback()
         }
+        .onChange(of: viewModel.powerUpPulseToken) { _, _ in
+            showPowerUpFeedback()
+        }
+        .onChange(of: viewModel.sumClearPulseToken) { _, _ in
+            showBeginnerSumFeedback()
+        }
         .onChange(of: viewModel.boardShakeToken) { _, _ in
             hardDropFeedback()
         }
@@ -221,8 +293,8 @@ struct GameView: View {
                 .scaleEffect(cascadePulse ? 1.03 : 1.0)
                 .animation(.easeOut(duration: 0.16), value: cascadePulse)
                 .accessibilityLabel("Cascade \(max(1, viewModel.state.cascadeCount))")
-            inlineChip(text: "Next \(viewModel.state.nextPieceValue)", style: .next)
-                .accessibilityLabel("Next piece \(viewModel.state.nextPieceValue)")
+            inlineChip(text: "Next \(viewModel.state.nextPieceDisplayText)", style: .next)
+                .accessibilityLabel("Next piece \(viewModel.state.nextPieceDisplayText)")
         }
     }
 
@@ -348,6 +420,18 @@ struct GameView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
             cascadePulse = false
         }
+        if viewModel.state.cascadeCount >= 2 {
+            withAnimation(.easeOut(duration: 0.14)) {
+                cascadeBannerText = "Cascade ×\(viewModel.state.cascadeCount)"
+                transientBoardGlow = 0.11
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.62) {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    cascadeBannerText = nil
+                    transientBoardGlow = 0
+                }
+            }
+        }
     }
 
     private func pulseTarget() {
@@ -371,12 +455,50 @@ struct GameView: View {
     }
 
     private func showPerfectClearFeedback() {
+        withAnimation(.easeOut(duration: 0.14)) {
+            transientBoardGlow = 0.2
+        }
         withAnimation(.easeInOut(duration: 0.18)) {
             perfectClearVisible = true
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             withAnimation(.easeOut(duration: 0.22)) {
                 perfectClearVisible = false
+                transientBoardGlow = 0
+            }
+        }
+    }
+
+    private func showPowerUpFeedback() {
+        powerUpBannerText = viewModel.lastPowerUpLabel
+        withAnimation(.easeOut(duration: 0.18)) {}
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            withAnimation(.easeIn(duration: 0.2)) {
+                powerUpBannerText = nil
+            }
+        }
+    }
+
+    private func showBeginnerSumFeedback() {
+        guard let event = viewModel.lastSumClearEvent, !event.values.isEmpty else { return }
+        let expression = event.values.map(String.init).joined(separator: " + ")
+        sumBannerText = "\(expression) = \(event.target)"
+
+        let avgRow = event.positions.map(\.row).reduce(0, +) / max(1, event.positions.count)
+        let avgColumn = event.positions.map(\.column).reduce(0, +) / max(1, event.positions.count)
+        let rowFraction = CGFloat(avgRow + 1) / CGFloat(max(1, viewModel.state.board.rows))
+        let colFraction = CGFloat(avgColumn + 1) / CGFloat(max(1, viewModel.state.board.columns))
+        sumBannerX = colFraction
+        sumBannerY = rowFraction
+        sumBannerRise = 0
+
+        withAnimation(.easeOut(duration: 0.28)) {
+            sumBannerRise = -24
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.95) {
+            withAnimation(.easeIn(duration: 0.2)) {
+                sumBannerText = nil
+                sumBannerRise = 0
             }
         }
     }
@@ -550,37 +672,98 @@ struct GameView: View {
         NeonTheme.overlayScrim
             .ignoresSafeArea()
 
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             Text("Game Over")
-                .font(.title2.bold())
+                .font(.title.bold())
                 .foregroundStyle(NeonTheme.textPrimary)
-            Text("Final \(viewModel.state.score)  •  Best \(viewModel.highScore)")
-                .font(.subheadline)
-                .foregroundStyle(NeonTheme.textSecondary)
 
-            HStack(spacing: 10) {
-                Button("Retry", action: viewModel.newGame)
-                    .buttonStyle(.borderedProminent)
-                    .tint(NeonTheme.controlsTint)
-                    .accessibilityLabel("Retry")
+            VStack(spacing: 8) {
+                Text("Final Score")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(NeonTheme.textSecondary)
+                Text("\(viewModel.state.score)")
+                    .font(.system(size: 40, weight: .heavy, design: .rounded))
+                    .foregroundStyle(NeonTheme.textPrimary)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
+                Text("Best \(viewModel.highScore)")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(NeonTheme.textSecondary)
+                if viewModel.didSetNewBestInRun || viewModel.isNewBestForCurrentGameOver {
+                    Text("New Best!")
+                        .font(.subheadline.weight(.heavy))
+                        .foregroundStyle(NeonTheme.controlsTint)
+                }
+                Text("Mode: \(viewModel.state.gameMode.title)")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(NeonTheme.textSecondary)
+            }
+            .padding(.vertical, 4)
+
+            VStack(spacing: 6) {
+                recapRow(title: "Lines Cleared", value: "\(viewModel.state.linesCleared)")
+                recapRow(title: "Perfect Clears", value: "\(viewModel.state.perfectClearsCount)")
+                recapRow(title: "Highest Cascade", value: "×\(max(1, viewModel.state.highestCascade))")
+                recapRow(title: "Longest Line", value: "\(viewModel.state.longestLineCleared)")
+            }
+            .padding(10)
+            .background(NeonTheme.chipFill)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(NeonTheme.chipStroke, lineWidth: 0.8)
+            )
+
+            VStack(spacing: 10) {
+                pauseActionButton(
+                    title: "Retry",
+                    style: .primary,
+                    action: viewModel.newGame
+                )
 
                 if let onMainMenu {
-                    Button("Main Menu") {
+                    pauseActionButton(
+                        title: "Main Menu",
+                        style: .secondary
+                    ) {
+                        viewModel.triggerButtonTapSound()
                         onMainMenu()
                     }
-                    .buttonStyle(.bordered)
-                    .tint(NeonTheme.textPrimary.opacity(0.75))
-                    .accessibilityLabel("Main menu")
+                }
+
+                pauseActionButton(
+                    title: "Settings",
+                    style: .secondary
+                ) {
+                    viewModel.triggerButtonTapSound()
+                    isSettingsPresented = true
                 }
             }
+            .frame(maxWidth: 260)
         }
-        .padding(22)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 24)
         .background(NeonTheme.cardFill)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(NeonTheme.cardStroke, lineWidth: 1)
         }
+        .frame(maxWidth: 320)
+    }
+
+    private func recapRow(title: String, value: String) -> some View {
+        HStack {
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(NeonTheme.textSecondary)
+            Spacer(minLength: 12)
+            Text(value)
+                .font(.footnote.weight(.heavy))
+                .foregroundStyle(NeonTheme.textPrimary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title) \(value)")
     }
 
     private func iconButton(symbol: String, accessibilityLabel: String, action: @escaping () -> Void) -> some View {

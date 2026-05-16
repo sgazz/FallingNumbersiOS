@@ -6,6 +6,7 @@ struct ClearScoreBreakdown {
     let lengthMultiplier: Double
     let cascade: Int
     let cascadeMultiplier: Double
+    let expertMultiplier: Double
     let awardedScore: Int
 }
 
@@ -59,23 +60,30 @@ struct ScoreSystem {
         }
     }
 
-    func scoreBreakdownForClear(tileCount: Int, cascade: Int, isHorizontal: Bool = false) -> ClearScoreBreakdown {
+    func scoreBreakdownForClear(
+        tileCount: Int,
+        cascade: Int,
+        isHorizontal: Bool = false,
+        expertMode: Bool = false
+    ) -> ClearScoreBreakdown {
         let baseScore = tileCount * 10
         let lengthMultiplier = lengthMultiplier(for: tileCount)
         let cascadeMultiplier = cascadeMultiplier(for: cascade)
         let directionalMultiplier = isHorizontal ? horizontalBonusMultiplier : 1.0
-        let final = Int((Double(baseScore) * lengthMultiplier * cascadeMultiplier * directionalMultiplier).rounded())
+        let expertMultiplier = expertMode ? 1.2 : 1.0
+        let final = Int((Double(baseScore) * lengthMultiplier * cascadeMultiplier * directionalMultiplier * expertMultiplier).rounded())
         return ClearScoreBreakdown(
             lineLength: tileCount,
             baseScore: baseScore,
             lengthMultiplier: lengthMultiplier,
             cascade: max(1, cascade),
             cascadeMultiplier: cascadeMultiplier,
+            expertMultiplier: expertMultiplier,
             awardedScore: final
         )
     }
 
-    func pointsForClear(tileCount: Int, cascade: Int, isHorizontal: Bool = false) -> Int {
-        scoreBreakdownForClear(tileCount: tileCount, cascade: cascade, isHorizontal: isHorizontal).awardedScore
+    func pointsForClear(tileCount: Int, cascade: Int, isHorizontal: Bool = false, expertMode: Bool = false) -> Int {
+        scoreBreakdownForClear(tileCount: tileCount, cascade: cascade, isHorizontal: isHorizontal, expertMode: expertMode).awardedScore
     }
 }

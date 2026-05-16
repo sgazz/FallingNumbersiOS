@@ -80,11 +80,12 @@ enum GameDebugLogger {
         baseScore: Int,
         lengthMultiplier: Double,
         cascadeMultiplier: Double,
+        expertMultiplier: Double,
         specialSpawnChance: Double,
         awarded: Int
     ) {
         let chance = Int((specialSpawnChance * 100.0).rounded())
-        log("cascade=\(cascade) lineMultiplier=\(lengthMultiplier) cascadeMultiplier=\(cascadeMultiplier) scoreAwarded=\(awarded) specialChance=\(chance)% base=\(baseScore) len=\(lineLength)")
+        log("cascade=\(cascade) lineMultiplier=\(lengthMultiplier) cascadeMultiplier=\(cascadeMultiplier) expertMultiplier=\(expertMultiplier) scoreAwarded=\(awarded) specialChance=\(chance)% base=\(baseScore) len=\(lineLength)")
     }
 
     static func logGameOver(spawnPosition: GridPosition, board: Board) {
@@ -121,7 +122,7 @@ enum GameDebugLogger {
     static func logBoard(_ board: Board, title: String) {}
     static func logMatch(direction: MatchDirection, positions: [GridPosition], values: [Int], target: Int, removed: Int, cascade: Int, score: Int) {}
     static func logCascade(step: Int) {}
-    static func logScoreBreakdown(cascade: Int, lineLength: Int, baseScore: Int, lengthMultiplier: Double, cascadeMultiplier: Double, specialSpawnChance: Double, awarded: Int) {}
+    static func logScoreBreakdown(cascade: Int, lineLength: Int, baseScore: Int, lengthMultiplier: Double, cascadeMultiplier: Double, expertMultiplier: Double, specialSpawnChance: Double, awarded: Int) {}
     static func logGameOver(spawnPosition: GridPosition, board: Board) {}
     static func logPerfectClear(bonus: Int, cascade: Int, specialSpawnChance: Double) {}
     static func logPowerUp(type: String, axis: String?, index: Int?, removed: Int) {}

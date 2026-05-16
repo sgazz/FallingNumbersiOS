@@ -1,16 +1,42 @@
 import Foundation
 
 struct SpawnSystem {
-    func makePiece(on board: Board, value: Int) -> FallingPiece? {
+    func makePiece(on board: Board, kind: TileKind) -> FallingPiece? {
         let preferredColumn = nextSpawnColumn(columns: board.columns)
         if let column = bestAvailableSpawnColumn(on: board, preferredColumn: preferredColumn) {
             let spawn = GridPosition(row: 0, column: column)
-            return FallingPiece(value: value, position: spawn)
+            return FallingPiece(kind: kind, position: spawn)
         }
         return nil
     }
 
-    func nextValue(level: Int) -> Int {
+    func makePiece(on board: Board, value: Int) -> FallingPiece? {
+        makePiece(on: board, kind: .number(value))
+    }
+
+    func nextTileKind(level: Int, mode: GameMode, specialSpawnChance: Double) -> TileKind {
+        let allowsSpecial: Bool
+        if mode == .expert {
+            allowsSpecial = level >= 3
+        } else {
+            allowsSpecial = level >= 6
+        }
+
+        if allowsSpecial, Double.random(in: 0...1) < specialSpawnChance {
+            let roll = Double.random(in: 0...1)
+            if roll < 0.4 { return .rowClear }
+            if roll < 0.8 { return .columnClear }
+            return .reorder
+        }
+
+        return .number(nextValue(level: level, mode: mode))
+    }
+
+    func nextValue(level: Int, mode: GameMode) -> Int {
+        if mode == .expert {
+            return Int.random(in: 1...9)
+        }
+
         // Board pressure tuning: keep early game approachable,
         // then gradually lift value floor and range for denser arithmetic decisions.
         let range: ClosedRange<Int>

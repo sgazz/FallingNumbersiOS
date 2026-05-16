@@ -14,6 +14,11 @@ final class GameScreenViewModel: ObservableObject {
     @Published private(set) var comboPulseToken: Int = 0
     @Published private(set) var targetPulseToken: Int = 0
     @Published private(set) var perfectClearToken: Int = 0
+    @Published private(set) var powerUpPulseToken: Int = 0
+    @Published private(set) var lastPowerUpLabel: String?
+    @Published private(set) var sumClearPulseToken: Int = 0
+    @Published private(set) var lastSumClearEvent: SumClearEvent?
+    @Published private(set) var didSetNewBestInRun: Bool = false
     @Published private(set) var settings: AppSettings
 #if DEBUG
     @Published var diagnosticsEnabled = false
@@ -27,6 +32,10 @@ final class GameScreenViewModel: ObservableObject {
     private let audio: AudioClient
     private var pausedByLifecycle = false
     private(set) var timerStartCount = 0
+    private var runStartingBest: Int
+    var isNewBestForCurrentGameOver: Bool {
+        state.isGameOver && state.score > runStartingBest
+    }
 
     init(
         engine: GameEngine? = nil,
@@ -39,15 +48,17 @@ final class GameScreenViewModel: ObservableObject {
         let resolvedHighScoreStore = highScoreStore ?? UserDefaultsHighScoreStore()
         let resolvedSettingsStore = settingsStore ?? UserDefaultsSettingsStore()
         let initialMode = resolvedEngine.state.gameMode
+        let initialHighScore = resolvedHighScoreStore.load(for: initialMode)
 
         self.engine = resolvedEngine
         self.state = resolvedEngine.state
         self.highScoreStore = resolvedHighScoreStore
-        self.highScore = resolvedHighScoreStore.load(for: initialMode)
+        self.highScore = initialHighScore
+        self.runStartingBest = initialHighScore
         self.settingsStore = resolvedSettingsStore
         self.settings = resolvedSettingsStore.load()
         self.haptics = haptics ?? UIKitHapticsClient()
-        self.audio = audio ?? NoopAudioClient()
+        self.audio = audio ?? UIKitAudioClient()
         self.showsStartOverlay = true
 
         self.engine.send(.start)
@@ -100,24 +111,32 @@ final class GameScreenViewModel: ObservableObject {
     }
 
     func togglePause() {
+        if settings.isSoundEnabled { audio.trigger(.buttonTap) }
         engine.send(.togglePause)
         syncFromEngine(previous: state)
     }
 
     func newGame() {
+        if settings.isSoundEnabled { audio.trigger(.buttonTap) }
         engine.send(.newGame)
         syncFromEngine(previous: state)
+        runStartingBest = highScore
+        didSetNewBestInRun = false
         showsStartOverlay = false
     }
 
     func setMode(_ mode: GameMode) {
+        if settings.isSoundEnabled { audio.trigger(.buttonTap) }
         engine.send(.setMode(mode))
         syncFromEngine(previous: state)
+        runStartingBest = highScore
+        didSetNewBestInRun = false
         showsStartOverlay = false
     }
 
     func startGameFromOverlay() {
         guard showsStartOverlay else { return }
+        if settings.isSoundEnabled { audio.trigger(.buttonTap) }
         showsStartOverlay = false
         if state.isPaused {
             engine.send(.togglePause)
@@ -156,6 +175,10 @@ final class GameScreenViewModel: ObservableObject {
         settingsStore.save(settings)
     }
 
+    func triggerButtonTapSound() {
+        if settings.isSoundEnabled { audio.trigger(.buttonTap) }
+    }
+
     func setHapticsEnabled(_ enabled: Bool) {
         settings.isHapticsEnabled = enabled
         settingsStore.save(settings)
@@ -189,6 +212,8 @@ final class GameScreenViewModel: ObservableObject {
 
         if let previous, previous.gameMode != state.gameMode {
             highScore = highScoreStore.load(for: state.gameMode)
+            runStartingBest = highScore
+            didSetNewBestInRun = false
         }
 
         if state.score > highScore {
@@ -203,17 +228,51 @@ final class GameScreenViewModel: ObservableObject {
             }
             if state.cascadeCount > previous.cascadeCount, state.cascadeCount > 0 {
                 if settings.isHapticsEnabled { haptics.cleared(combo: state.cascadeCount) }
-                if settings.isSoundEnabled { audio.trigger(.clear(combo: state.cascadeCount)) }
+                if settings.isSoundEnabled {
+                    audio.trigger(.clear)
+                    if state.cascadeCount >= 2 {
+                        audio.trigger(.cascade(level: state.cascadeCount))
+                    }
+                }
                 comboPulseToken &+= 1
                 targetPulseToken &+= 1
             }
             if !previous.isGameOver, state.isGameOver {
                 if settings.isHapticsEnabled { haptics.gameOver() }
                 if settings.isSoundEnabled { audio.trigger(.gameOver) }
+                didSetNewBestInRun = state.score > runStartingBest
+                if didSetNewBestInRun, settings.isHapticsEnabled { haptics.newBest() }
             }
             if state.didPerfectClear {
                 if settings.isHapticsEnabled { haptics.perfectClear() }
+                if settings.isSoundEnabled { audio.trigger(.perfectClear) }
                 perfectClearToken &+= 1
+            }
+            if state.powerUpEventToken != previous.powerUpEventToken,
+               let activation = state.lastPowerUpActivation {
+                if settings.isHapticsEnabled {
+                    haptics.powerUpActivated(activation.type)
+                }
+                if settings.isSoundEnabled {
+                    switch activation.type {
+                    case .rowClear: audio.trigger(.rowClear)
+                    case .columnClear: audio.trigger(.columnClear)
+                    case .reorder: audio.trigger(.reorder)
+                    }
+                }
+                lastPowerUpLabel = {
+                    switch activation.type {
+                    case .rowClear: return "Row Clear!"
+                    case .columnClear: return "Column Clear!"
+                    case .reorder: return "Reorder!"
+                    }
+                }()
+                powerUpPulseToken &+= 1
+            }
+            if state.sumClearEventToken != previous.sumClearEventToken,
+               state.gameMode == .beginner {
+                lastSumClearEvent = state.lastSumClearEvent
+                sumClearPulseToken &+= 1
             }
         }
 

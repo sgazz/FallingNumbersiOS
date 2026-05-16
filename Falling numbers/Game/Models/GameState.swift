@@ -1,16 +1,21 @@
 import Foundation
 
 struct GameState {
+    var gameMode: GameMode
     var board: Board
     var activePiece: FallingPiece?
     var lastLockedPosition: GridPosition?
     var isLockDelayActive: Bool
     var lockDelayRemaining: TimeInterval
-    var nextPieceValue: Int
+    var nextPieceKind: TileKind
     var hasPlayerMoved: Bool
     var score: Int
     var level: Int
     var totalClearedTiles: Int
+    var linesCleared: Int
+    var perfectClearsCount: Int
+    var highestCascade: Int
+    var longestLineCleared: Int
     var targetTimerRemaining: TimeInterval
     var targetCycleIndex: Int
     var cascadeCount: Int
@@ -24,22 +29,35 @@ struct GameState {
     var didTargetChange: Bool
     var didPerfectClear: Bool
     var lastPerfectClearBonus: Int
+    var lastPowerUpActivation: PowerUpActivation?
+    var powerUpEventToken: Int
+    var lastSumClearEvent: SumClearEvent?
+    var sumClearEventToken: Int
     var currentTickInterval: TimeInterval
     var isGameOver: Bool
     var isPaused: Bool
 
     static func initial(config: GameConfig) -> GameState {
+        initial(config: config, mode: .beginner)
+    }
+
+    static func initial(config: GameConfig, mode: GameMode) -> GameState {
         GameState(
+            gameMode: mode,
             board: Board(rows: config.rows, columns: config.columns),
             activePiece: nil,
             lastLockedPosition: nil,
             isLockDelayActive: false,
             lockDelayRemaining: 0,
-            nextPieceValue: 1,
+            nextPieceKind: .number(1),
             hasPlayerMoved: false,
             score: 0,
             level: 1,
             totalClearedTiles: 0,
+            linesCleared: 0,
+            perfectClearsCount: 0,
+            highestCascade: 0,
+            longestLineCleared: 0,
             targetTimerRemaining: config.targetChangeInterval,
             targetCycleIndex: 0,
             cascadeCount: 0,
@@ -53,9 +71,22 @@ struct GameState {
             didTargetChange: false,
             didPerfectClear: false,
             lastPerfectClearBonus: 0,
+            lastPowerUpActivation: nil,
+            powerUpEventToken: 0,
+            lastSumClearEvent: nil,
+            sumClearEventToken: 0,
             currentTickInterval: config.tickInterval,
             isGameOver: false,
             isPaused: false
         )
+    }
+
+    var nextPieceValue: Int {
+        get { nextPieceKind.numericValue ?? 1 }
+        set { nextPieceKind = .number(newValue) }
+    }
+
+    var nextPieceDisplayText: String {
+        nextPieceKind.displayText
     }
 }

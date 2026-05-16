@@ -4,6 +4,7 @@ struct GameConfig {
     let columns: Int
     let rows: Int
     let tickInterval: TimeInterval
+    let expertStartingTickInterval: TimeInterval
     let lockDelayDuration: TimeInterval
     let targetChangeInterval: TimeInterval
     let baseTargetNumber: Int
@@ -15,6 +16,7 @@ struct GameConfig {
         columns: Int,
         rows: Int,
         tickInterval: TimeInterval,
+        expertStartingTickInterval: TimeInterval? = nil,
         lockDelayDuration: TimeInterval = 0.22,
         targetChangeInterval: TimeInterval = 30.0,
         baseTargetNumber: Int,
@@ -25,6 +27,7 @@ struct GameConfig {
         self.columns = columns
         self.rows = rows
         self.tickInterval = tickInterval
+        self.expertStartingTickInterval = expertStartingTickInterval ?? (tickInterval * pow(0.92, 4))
         self.lockDelayDuration = lockDelayDuration
         self.targetChangeInterval = targetChangeInterval
         self.baseTargetNumber = baseTargetNumber
@@ -37,6 +40,7 @@ struct GameConfig {
         columns: 10,
         rows: 20,
         tickInterval: 0.65,
+        expertStartingTickInterval: 0.65 * pow(0.92, 4),
         lockDelayDuration: 0.22,
         targetChangeInterval: 30.0,
         baseTargetNumber: 10,

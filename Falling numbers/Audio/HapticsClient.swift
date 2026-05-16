@@ -7,6 +7,8 @@ protocol HapticsClient {
     func cleared(combo: Int)
     func perfectClear()
     func gameOver()
+    func newBest()
+    func powerUpActivated(_ type: PowerUpType)
 }
 
 struct NoopHapticsClient: HapticsClient {
@@ -15,6 +17,8 @@ struct NoopHapticsClient: HapticsClient {
     func cleared(combo: Int) {}
     func perfectClear() {}
     func gameOver() {}
+    func newBest() {}
+    func powerUpActivated(_ type: PowerUpType) {}
 }
 
 @MainActor
@@ -24,6 +28,7 @@ final class UIKitHapticsClient: HapticsClient {
     private let clearGenerator = UIImpactFeedbackGenerator(style: .rigid)
     private let comboGenerator = UINotificationFeedbackGenerator()
     private let gameOverGenerator = UINotificationFeedbackGenerator()
+    private let powerUpGenerator = UIImpactFeedbackGenerator(style: .soft)
 
     init() {
         moveGenerator.prepare()
@@ -31,6 +36,7 @@ final class UIKitHapticsClient: HapticsClient {
         clearGenerator.prepare()
         comboGenerator.prepare()
         gameOverGenerator.prepare()
+        powerUpGenerator.prepare()
     }
 
     func moved() {
@@ -61,5 +67,21 @@ final class UIKitHapticsClient: HapticsClient {
     func gameOver() {
         gameOverGenerator.notificationOccurred(.warning)
         gameOverGenerator.prepare()
+    }
+
+    func newBest() {
+        comboGenerator.notificationOccurred(.success)
+        comboGenerator.prepare()
+    }
+
+    func powerUpActivated(_ type: PowerUpType) {
+        switch type {
+        case .reorder:
+            comboGenerator.notificationOccurred(.success)
+            comboGenerator.prepare()
+        case .rowClear, .columnClear:
+            powerUpGenerator.impactOccurred(intensity: 0.95)
+            powerUpGenerator.prepare()
+        }
     }
 }

@@ -23,7 +23,11 @@ struct LevelSystem {
         return min(1.0, max(0.0, Double(score - currentThreshold) / Double(span)))
     }
 
-    func targetRange(forCycle cycle: Int) -> ClosedRange<Int> {
+    func targetRange(forCycle cycle: Int, mode: GameMode) -> ClosedRange<Int> {
+        if mode == .expert {
+            return 5...20
+        }
+
         switch cycle {
         case ...2:
             return 8...12
@@ -34,8 +38,19 @@ struct LevelSystem {
         }
     }
 
-    func targetNumber(forCycle cycle: Int, previousTarget: Int, repeatCount: Int) -> Int {
-        let range = targetRange(forCycle: cycle)
+    func targetNumber(forCycle cycle: Int, previousTarget: Int, repeatCount: Int, mode: GameMode) -> Int {
+        let range = targetRange(forCycle: cycle, mode: mode)
+        if mode == .expert {
+            var candidate = Int.random(in: range)
+            if candidate == previousTarget {
+                candidate = min(range.upperBound, candidate + 1)
+                if candidate == previousTarget {
+                    candidate = max(range.lowerBound, candidate - 1)
+                }
+            }
+            return candidate
+        }
+
         let jumpCap: Int
         switch cycle {
         case ...2:
@@ -72,7 +87,12 @@ struct LevelSystem {
         return candidate
     }
 
-    func tickInterval(base: TimeInterval, level: Int) -> TimeInterval {
+    func tickInterval(base: TimeInterval, level: Int, mode: GameMode) -> TimeInterval {
+        if mode == .expert {
+            let reduced = base * pow(0.92, Double(max(0, level - 1)))
+            return max(0.20, reduced)
+        }
+
         let reduced = base * pow(0.92, Double(max(0, level - 1)))
         return max(0.26, reduced)
     }

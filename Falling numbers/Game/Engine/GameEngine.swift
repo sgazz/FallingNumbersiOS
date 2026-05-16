@@ -20,16 +20,17 @@ struct GameEngine {
         levelSystem: LevelSystem = LevelSystem()
     ) {
         self.config = config
-        self.state = GameState.initial(config: config)
+        self.state = GameState.initial(config: config, mode: .beginner)
         self.detector = detector
         self.spawnSystem = spawnSystem
         self.gravitySystem = gravitySystem
         self.scoreSystem = scoreSystem
         self.levelSystem = levelSystem
         self.pendingTargetCycleAdvance = false
+        configureInitialTargetForMode()
         updateProgressionState()
         applyStartingLayout()
-        state.nextPieceValue = spawnSystem.nextValue(level: state.level)
+        state.nextPieceKind = spawnSystem.nextTileKind(level: state.level, mode: state.gameMode, specialSpawnChance: state.specialSpawnChance)
     }
 
     init(
@@ -50,8 +51,8 @@ struct GameEngine {
         self.levelSystem = levelSystem
         self.pendingTargetCycleAdvance = false
         updateProgressionState()
-        if !(1...9).contains(self.state.nextPieceValue) {
-            self.state.nextPieceValue = spawnSystem.nextValue(level: self.state.level)
+        if case .number(let value) = self.state.nextPieceKind, (1...9).contains(value) == false {
+            self.state.nextPieceKind = .number(spawnSystem.nextValue(level: self.state.level, mode: self.state.gameMode))
         }
     }
 
@@ -60,10 +61,15 @@ struct GameEngine {
         state.didTargetChange = false
         state.didPerfectClear = false
         state.lastPerfectClearBonus = 0
+        state.lastPowerUpActivation = nil
+        state.lastSumClearEvent = nil
 
         switch action {
         case .newGame:
             resetGame()
+            return
+        case .setMode(let mode):
+            setMode(mode)
             return
         case .togglePause:
             state.isPaused.toggle()
@@ -89,18 +95,31 @@ struct GameEngine {
             applyPendingTargetChangeIfSafe()
             advanceTargetTimerIfNeeded()
             stepDownOrLock()
-        case .newGame, .togglePause:
+        case .newGame, .setMode, .togglePause:
             break
         }
     }
 
     private mutating func resetGame() {
-        state = GameState.initial(config: config)
+        state = GameState.initial(config: config, mode: state.gameMode)
         pendingTargetCycleAdvance = false
+        configureInitialTargetForMode()
         updateProgressionState()
         applyStartingLayout()
-        state.nextPieceValue = spawnSystem.nextValue(level: state.level)
+        state.nextPieceKind = spawnSystem.nextTileKind(level: state.level, mode: state.gameMode, specialSpawnChance: state.specialSpawnChance)
         spawnIfNeeded()
+    }
+
+    private mutating func setMode(_ mode: GameMode) {
+        state.gameMode = mode
+        resetGame()
+    }
+
+    private mutating func configureInitialTargetForMode() {
+        guard state.gameMode == .expert else { return }
+        state.targetNumber = Int.random(in: 5...20)
+        state.targetCycleIndex = 0
+        state.targetRepeatCount = 0
     }
 
     private mutating func moveActivePiece(columnDelta: Int) {
@@ -175,11 +194,11 @@ struct GameEngine {
         state.activePiece = piece
         state.score += droppedRows * 2
         state.hasPlayerMoved = true
-        GameDebugLogger.logHardDrop(value: piece.value, finalPosition: piece.position, droppedRows: droppedRows)
+        GameDebugLogger.logHardDrop(value: piece.kind.numericValue ?? 0, finalPosition: piece.position, droppedRows: droppedRows)
 
         cancelLockDelay()
         let lockedPosition = lock(piece)
-        resolveBoard(preferredOrigin: lockedPosition)
+        resolveAfterLock(for: piece, lockedPosition: lockedPosition)
         spawnIfNeeded()
         applyPendingTargetChangeIfSafe()
     }
@@ -209,15 +228,15 @@ struct GameEngine {
         if state.lockDelayRemaining <= 0 {
             cancelLockDelay()
             let lockedPosition = lock(piece)
-            resolveBoard(preferredOrigin: lockedPosition)
+            resolveAfterLock(for: piece, lockedPosition: lockedPosition)
             spawnIfNeeded()
             applyPendingTargetChangeIfSafe()
         }
     }
 
     private mutating func lock(_ piece: FallingPiece) -> GridPosition {
-        state.board.setCell(Cell(value: piece.value), at: piece.position)
-        GameDebugLogger.logLock(value: piece.value, position: piece.position)
+        state.board.setCell(Cell(kind: piece.kind), at: piece.position)
+        GameDebugLogger.logLock(value: piece.kind.numericValue ?? 0, position: piece.position)
         state.lastLockedPosition = piece.position
         state.activePiece = nil
         return piece.position
@@ -238,6 +257,94 @@ struct GameEngine {
     private mutating func cancelLockDelay() {
         state.isLockDelayActive = false
         state.lockDelayRemaining = 0
+    }
+
+    private mutating func resolveAfterLock(for piece: FallingPiece, lockedPosition: GridPosition) {
+        switch piece.kind {
+        case .number:
+            resolveBoard(preferredOrigin: lockedPosition)
+        case .rowClear:
+            activateRowClear(at: lockedPosition)
+            resolveBoard(preferredOrigin: nil)
+        case .columnClear:
+            activateColumnClear(at: lockedPosition)
+            resolveBoard(preferredOrigin: nil)
+        case .reorder:
+            activateReorder(at: lockedPosition)
+        }
+    }
+
+    private mutating func activateRowClear(at position: GridPosition) {
+        state.lastPowerUpActivation = PowerUpActivation(type: .rowClear, row: position.row, column: nil)
+        state.powerUpEventToken &+= 1
+        var removed = 0
+        for column in 0..<state.board.columns {
+            let target = GridPosition(row: position.row, column: column)
+            if state.board.cell(at: target) != nil {
+                removed += 1
+                state.board.setCell(nil, at: target)
+            }
+        }
+        if removed > 0 {
+            state.score += removed * 15
+            state.totalClearedTiles += removed
+            GameDebugLogger.logPowerUp(type: "rowClear", axis: "row", index: position.row, removed: removed)
+            gravitySystem.collapse(board: &state.board)
+        }
+    }
+
+    private mutating func activateColumnClear(at position: GridPosition) {
+        state.lastPowerUpActivation = PowerUpActivation(type: .columnClear, row: nil, column: position.column)
+        state.powerUpEventToken &+= 1
+        var removed = 0
+        for row in 0..<state.board.rows {
+            let target = GridPosition(row: row, column: position.column)
+            if state.board.cell(at: target) != nil {
+                removed += 1
+                state.board.setCell(nil, at: target)
+            }
+        }
+        if removed > 0 {
+            state.score += removed * 15
+            state.totalClearedTiles += removed
+            GameDebugLogger.logPowerUp(type: "columnClear", axis: "column", index: position.column, removed: removed)
+            gravitySystem.collapse(board: &state.board)
+        }
+    }
+
+    private mutating func activateReorder(at position: GridPosition) {
+        state.lastPowerUpActivation = PowerUpActivation(type: .reorder, row: nil, column: nil)
+        state.powerUpEventToken &+= 1
+        // Power-up tile disappears on activation.
+        state.board.setCell(nil, at: position)
+
+        let positions = state.board
+            .allOccupiedPositions()
+            .sorted { lhs, rhs in
+                if lhs.row != rhs.row { return lhs.row > rhs.row }
+                return lhs.column < rhs.column
+            }
+
+        var values = positions.compactMap { state.board.cell(at: $0)?.kind.numericValue }
+        guard !values.isEmpty else {
+            GameDebugLogger.logPowerUp(type: "reorder", axis: nil, index: nil, removed: 0)
+            return
+        }
+
+        values.sort()
+        for target in positions {
+            state.board.setCell(nil, at: target)
+        }
+
+        for (index, target) in positions.enumerated() where index < values.count {
+            state.board.setCell(Cell(value: values[index]), at: target)
+        }
+
+        let affected = values.count
+        if affected >= 5 {
+            state.score += 100
+        }
+        GameDebugLogger.logPowerUp(type: "reorder", axis: nil, index: nil, removed: affected)
     }
 
     private func isGrounded(_ piece: FallingPiece) -> Bool {
@@ -291,31 +398,47 @@ struct GameEngine {
             originForCurrentPass = nil
 
             let scoreBefore = state.score
-            let selectedValues = selectedGroup.compactMap { state.board.cell(at: $0)?.value }
+            let orderedGroup = orderedPositions(in: selectedGroup, direction: directionFor(group: selectedGroup))
+            let selectedValues = orderedGroup.compactMap { state.board.cell(at: $0)?.value }
             let direction: MatchDirection = isHorizontal(selectedGroup) ? .horizontal : .vertical
-            for position in selectedGroup {
+            for position in orderedGroup {
                 state.board.setCell(nil, at: position)
             }
             GameDebugLogger.logBoard(state.board, title: "board after clear")
 
-            let clearedCount = selectedGroup.count
+            let clearedCount = orderedGroup.count
             state.totalClearedTiles += clearedCount
+            state.linesCleared += 1
+            state.longestLineCleared = max(state.longestLineCleared, clearedCount)
             let effectiveCascade = max(1, workingCascade)
+            state.highestCascade = max(state.highestCascade, effectiveCascade)
             let scoreBreakdown = scoreSystem.scoreBreakdownForClear(
                 tileCount: clearedCount,
                 cascade: effectiveCascade,
-                isHorizontal: direction == .horizontal
+                isHorizontal: direction == .horizontal,
+                expertMode: state.gameMode == .expert
             )
             state.score += scoreBreakdown.awardedScore
             state.lastClearLength = scoreBreakdown.lineLength
             state.lastClearLengthMultiplier = scoreBreakdown.lengthMultiplier
             state.specialSpawnChance = scoreSystem.specialSpawnChance(for: effectiveCascade)
+            if state.gameMode == .beginner {
+                state.lastSumClearEvent = SumClearEvent(
+                    values: selectedValues,
+                    target: state.targetNumber,
+                    direction: direction == .horizontal ? .horizontal : .vertical,
+                    positions: orderedGroup,
+                    cascade: effectiveCascade
+                )
+                state.sumClearEventToken &+= 1
+            }
             GameDebugLogger.logScoreBreakdown(
                 cascade: effectiveCascade,
                 lineLength: scoreBreakdown.lineLength,
                 baseScore: scoreBreakdown.baseScore,
                 lengthMultiplier: scoreBreakdown.lengthMultiplier,
                 cascadeMultiplier: scoreBreakdown.cascadeMultiplier,
+                expertMultiplier: scoreBreakdown.expertMultiplier,
                 specialSpawnChance: state.specialSpawnChance,
                 awarded: scoreBreakdown.awardedScore
             )
@@ -325,7 +448,7 @@ struct GameEngine {
             let scoreGained = state.score - scoreBefore
             GameDebugLogger.logMatch(
                 direction: direction,
-                positions: selectedGroup,
+                positions: orderedGroup,
                 values: selectedValues,
                 target: state.targetNumber,
                 removed: clearedCount,
@@ -343,7 +466,9 @@ struct GameEngine {
             state.score += bonus
             state.didPerfectClear = true
             state.lastPerfectClearBonus = bonus
+            state.perfectClearsCount += 1
             workingCascade = min(workingCascade + 1, 5)
+            state.highestCascade = max(state.highestCascade, workingCascade)
             state.specialSpawnChance = scoreSystem.specialSpawnChance(for: workingCascade)
             GameDebugLogger.logPerfectClear(
                 bonus: bonus,
@@ -373,7 +498,8 @@ struct GameEngine {
         state.level = computedLevel
         state.didLevelChange = computedLevel != previousLevel
 
-        state.currentTickInterval = levelSystem.tickInterval(base: config.tickInterval, level: state.level)
+        let baseTick = (state.gameMode == .expert) ? config.expertStartingTickInterval : config.tickInterval
+        state.currentTickInterval = levelSystem.tickInterval(base: baseTick, level: state.level, mode: state.gameMode)
     }
 
     private mutating func advanceTargetTimerIfNeeded() {
@@ -397,7 +523,8 @@ struct GameEngine {
         state.targetNumber = levelSystem.targetNumber(
             forCycle: state.targetCycleIndex,
             previousTarget: previous,
-            repeatCount: state.targetRepeatCount
+            repeatCount: state.targetRepeatCount,
+            mode: state.gameMode
         )
         if state.targetNumber == previous {
             state.targetRepeatCount += 1
@@ -411,8 +538,8 @@ struct GameEngine {
     private mutating func spawnIfNeeded() {
         guard state.activePiece == nil else { return }
 
-        let spawnValue = state.nextPieceValue
-        guard let piece = spawnSystem.makePiece(on: state.board, value: spawnValue) else {
+        let spawnKind = state.nextPieceKind
+        guard let piece = spawnSystem.makePiece(on: state.board, kind: spawnKind) else {
             state.isGameOver = true
             let blocked = GridPosition(row: 0, column: state.board.columns / 2)
             GameDebugLogger.logGameOver(spawnPosition: blocked, board: state.board)
@@ -421,7 +548,7 @@ struct GameEngine {
 
         state.activePiece = piece
         state.lastLockedPosition = nil
-        GameDebugLogger.logPieceSpawn(value: piece.value, position: piece.position)
+        GameDebugLogger.logPieceSpawn(value: piece.kind.numericValue ?? 0, position: piece.position)
         let occupied = state.board.allOccupiedPositions().count
         let capacity = max(1, state.board.rows * state.board.columns)
         let occupancyPercent = Int((Double(occupied) / Double(capacity) * 100.0).rounded())
@@ -431,10 +558,11 @@ struct GameEngine {
             occupancyPercent: occupancyPercent
         )
         cancelLockDelay()
-        state.nextPieceValue = spawnSystem.nextValue(level: state.level)
+        state.nextPieceKind = spawnSystem.nextTileKind(level: state.level, mode: state.gameMode, specialSpawnChance: state.specialSpawnChance)
     }
 
     private mutating func applyStartingLayout() {
+        guard state.gameMode == .beginner else { return }
         // Early-game pacing:
         // add a small deterministic prefill near the bottom to reduce empty-start feel,
         // while keeping spawn safe and avoiding immediate target clears.
@@ -485,6 +613,25 @@ struct GameEngine {
         return group.allSatisfy { $0.row == first.row }
     }
 
+    private func directionFor(group: [GridPosition]) -> MatchDirection {
+        isHorizontal(group) ? .horizontal : .vertical
+    }
+
+    private func orderedPositions(in group: [GridPosition], direction: MatchDirection) -> [GridPosition] {
+        switch direction {
+        case .horizontal:
+            return group.sorted { lhs, rhs in
+                if lhs.row != rhs.row { return lhs.row < rhs.row }
+                return lhs.column < rhs.column
+            }
+        case .vertical:
+            return group.sorted { lhs, rhs in
+                if lhs.column != rhs.column { return lhs.column < rhs.column }
+                return lhs.row < rhs.row
+            }
+        }
+    }
+
     private func groupKey(_ group: [GridPosition]) -> String {
         group
             .sorted { lhs, rhs in
@@ -504,7 +651,7 @@ struct GameEngine {
                 var length = 0
                 for column in startColumn..<state.board.columns {
                     let pos = GridPosition(row: row, column: column)
-                    guard let value = state.board.cell(at: pos)?.value else { break }
+                    guard let value = state.board.cell(at: pos)?.kind.numericValue else { break }
                     sum += value
                     length += 1
                     if length >= 2, sum == target { return true }
@@ -519,7 +666,7 @@ struct GameEngine {
                 var length = 0
                 for row in startRow..<state.board.rows {
                     let pos = GridPosition(row: row, column: column)
-                    guard let value = state.board.cell(at: pos)?.value else { break }
+                    guard let value = state.board.cell(at: pos)?.kind.numericValue else { break }
                     sum += value
                     length += 1
                     if length >= 2, sum == target { return true }

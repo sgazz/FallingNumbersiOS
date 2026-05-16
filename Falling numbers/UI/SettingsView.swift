@@ -10,6 +10,18 @@ struct SettingsView: View {
                 NeonTheme.backgroundGradient
                     .ignoresSafeArea()
 
+                Circle()
+                    .fill(NeonTheme.accentSecondary.opacity(0.18))
+                    .frame(width: 280, height: 280)
+                    .blur(radius: 24)
+                    .offset(x: -120, y: -220)
+
+                Circle()
+                    .fill(NeonTheme.accentPrimary.opacity(0.15))
+                    .frame(width: 240, height: 240)
+                    .blur(radius: 20)
+                    .offset(x: 120, y: 240)
+
                 ScrollView {
                     VStack(spacing: 12) {
                         settingsCard(title: "Feedback") {
@@ -17,7 +29,7 @@ struct SettingsView: View {
                                 get: { viewModel.settings.isSoundEnabled },
                                 set: { viewModel.setSoundEnabled($0) }
                             ))
-                            .tint(NeonTheme.controlsTint)
+                            .tint(NeonTheme.accentPrimary)
                             .foregroundStyle(NeonTheme.textPrimary)
                             .accessibilityLabel("Sound")
 
@@ -28,7 +40,7 @@ struct SettingsView: View {
                                 get: { viewModel.settings.isHapticsEnabled },
                                 set: { viewModel.setHapticsEnabled($0) }
                             ))
-                            .tint(NeonTheme.controlsTint)
+                            .tint(NeonTheme.accentSecondary)
                             .foregroundStyle(NeonTheme.textPrimary)
                             .accessibilityLabel("Haptics")
                         }
@@ -49,11 +61,20 @@ struct SettingsView: View {
                                 .padding(.vertical, 10)
                                 .background(
                                     RoundedRectangle(cornerRadius: 10)
-                                        .fill(Color(red: 0.95, green: 0.87, blue: 0.78))
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color(red: 0.99, green: 0.74, blue: 0.31),
+                                                    Color(red: 0.98, green: 0.55, blue: 0.27)
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 10)
-                                        .stroke(Color(red: 0.50, green: 0.34, blue: 0.24).opacity(0.35), lineWidth: 0.8)
+                                        .stroke(Color.white.opacity(0.28), lineWidth: 0.9)
                                 )
                             }
                             .buttonStyle(.plain)
@@ -63,7 +84,7 @@ struct SettingsView: View {
 #if DEBUG
                         settingsCard(title: "Diagnostics") {
                             Toggle("Show Debug Overlay", isOn: $viewModel.diagnosticsEnabled)
-                                .tint(NeonTheme.controlsTint)
+                                .tint(NeonTheme.accentSecondary)
                                 .foregroundStyle(NeonTheme.textPrimary)
                                 .accessibilityLabel("Show debug overlay")
                         }
@@ -75,7 +96,7 @@ struct SettingsView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbarColorScheme(.light, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Settings")
@@ -105,20 +126,20 @@ struct SettingsView: View {
     private func settingsCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.caption.weight(.bold))
+                .font(.caption.weight(.heavy))
                 .tracking(0.8)
                 .foregroundStyle(NeonTheme.textSecondary)
 
             content()
         }
-        .padding(12)
+        .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(NeonTheme.cardFill)
+                .fill(NeonTheme.panelFill)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .stroke(NeonTheme.cardStroke, lineWidth: 0.9)
+                .stroke(NeonTheme.cardStroke, lineWidth: 1.0)
         )
     }
 }
