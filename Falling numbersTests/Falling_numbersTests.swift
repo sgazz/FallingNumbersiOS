@@ -111,6 +111,22 @@ struct FallingNumbersTests {
     }
 
     @Test
+    func beginnerBoardSizeIs15x7InDefaultConfig() {
+        let engine = GameEngine(config: .default)
+        #expect(engine.state.gameMode == .beginner)
+        #expect(engine.state.board.rows == 15)
+        #expect(engine.state.board.columns == 7)
+    }
+
+    @Test
+    func expertBoardSizeRemainsUnchangedInDefaultConfig() {
+        var engine = GameEngine(config: .default)
+        engine.send(.setMode(.expert))
+        #expect(engine.state.board.rows == 20)
+        #expect(engine.state.board.columns == 10)
+    }
+
+    @Test
     func expertModeTargetIsAlwaysWithinFiveToTwenty() {
         let levelSystem = LevelSystem()
         var previous = 10
@@ -131,6 +147,57 @@ struct FallingNumbersTests {
         let spawnSystem = SpawnSystem()
         let values = (0..<200).map { _ in spawnSystem.nextValue(level: 1, mode: .expert) }
         #expect(values.allSatisfy { (1...9).contains($0) })
+    }
+
+    @Test
+    func beginnerAllowsUpToThreeRepeatsButNotMore() {
+        let spawnSystem = SpawnSystem()
+        var history: [Int] = []
+        var maxStreak = 0
+        var currentStreak = 0
+        var lastValue: Int?
+
+        for _ in 0..<300 {
+            let value = spawnSystem.nextValue(level: 1, mode: .beginner, recentValues: history)
+            history.append(value)
+            if history.count > 12 { history.removeFirst() }
+            if value == lastValue {
+                currentStreak += 1
+            } else {
+                currentStreak = 1
+                lastValue = value
+            }
+            maxStreak = max(maxStreak, currentStreak)
+        }
+
+        #expect(maxStreak <= 3)
+    }
+
+    @Test
+    func expertPreventsLongStreaksAndStillProducesAllValues() {
+        let spawnSystem = SpawnSystem()
+        var history: [Int] = []
+        var seen = Set<Int>()
+        var maxStreak = 0
+        var currentStreak = 0
+        var lastValue: Int?
+
+        for _ in 0..<800 {
+            let value = spawnSystem.nextValue(level: 8, mode: .expert, recentValues: history)
+            seen.insert(value)
+            history.append(value)
+            if history.count > 12 { history.removeFirst() }
+            if value == lastValue {
+                currentStreak += 1
+            } else {
+                currentStreak = 1
+                lastValue = value
+            }
+            maxStreak = max(maxStreak, currentStreak)
+        }
+
+        #expect(maxStreak <= 2)
+        #expect(seen == Set(1...9))
     }
 
     @Test
@@ -454,6 +521,30 @@ struct FallingNumbersTests {
     }
 
     @Test
+    func expertCascadeNoLongerChainsAfterGravityButGravityStillApplies() {
+        let config = GameConfig(columns: 3, rows: 12, tickInterval: 0.5, baseTargetNumber: 10)
+        var state = GameState.initial(config: config, mode: .expert)
+        state.board = Board(rows: config.rows, columns: config.columns)
+        state.targetNumber = 10
+        state.totalClearedTiles = 0
+
+        state.board.setCell(Cell(value: 6), at: GridPosition(row: 11, column: 0))
+        for row in 8...10 {
+            state.board.setCell(Cell(value: 6), at: GridPosition(row: row, column: 0))
+            state.board.setCell(Cell(value: 4), at: GridPosition(row: row, column: 1))
+        }
+        state.activePiece = FallingPiece(value: 4, position: GridPosition(row: 0, column: 1))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.hardDrop)
+
+        #expect(engine.state.totalClearedTiles <= 4)
+        #expect(engine.state.cascadeCount <= 1)
+        let remainingMatches = CombinationDetector().findMatchingGroups(on: engine.state.board, target: 10)
+        #expect(!remainingMatches.isEmpty)
+    }
+
+    @Test
     func hardDropLocksCorrectly() {
         let config = GameConfig(columns: 4, rows: 6, tickInterval: 0.65, baseTargetNumber: 10)
         var state = GameState.initial(config: config)
@@ -552,6 +643,14 @@ struct FallingNumbersTests {
         #expect(scoreSystem.specialSpawnChance(for: 3) == 0.08)
         #expect(scoreSystem.specialSpawnChance(for: 5) == 0.12)
         #expect(scoreSystem.specialSpawnChance(for: 6) == 0.10)
+    }
+
+    @Test
+    func expertSpecialSpawnChanceDoesNotIncreaseFromCascade() {
+        let scoreSystem = ScoreSystem()
+        #expect(scoreSystem.specialSpawnChance(for: 1, mode: .expert) == 0.02)
+        #expect(scoreSystem.specialSpawnChance(for: 5, mode: .expert) == 0.02)
+        #expect(scoreSystem.specialSpawnChance(for: 10, mode: .expert) == 0.02)
     }
 
     @Test
@@ -1081,6 +1180,13 @@ struct FallingNumbersTests {
     }
 
     @Test
+    func expertCascadeMultiplierIsNeutral() {
+        let scoreSystem = ScoreSystem()
+        let breakdown = scoreSystem.scoreBreakdownForClear(tileCount: 4, cascade: 4, expertMode: true)
+        #expect(breakdown.cascadeMultiplier == 1.0)
+    }
+
+    @Test
     func beginnerScoreUnchanged() {
         let scoreSystem = ScoreSystem()
         let breakdown = scoreSystem.scoreBreakdownForClear(tileCount: 3, cascade: 1, expertMode: false)
@@ -1092,8 +1198,10 @@ struct FallingNumbersTests {
     func expertHUDStateExposed() {
         let viewModel = GameScreenViewModel(engine: GameEngine(), highScoreStore: TestHighScoreStore(initial: 0))
         #expect(viewModel.state.gameMode == .beginner)
+        #expect(viewModel.showsCascadeHUD)
         viewModel.setMode(.expert)
         #expect(viewModel.state.gameMode == .expert)
+        #expect(!viewModel.showsCascadeHUD)
     }
 
     @Test

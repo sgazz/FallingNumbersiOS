@@ -78,7 +78,10 @@ struct GameView: View {
                         RoundedRectangle(cornerRadius: 14)
                             .fill(
                                 Color.orange.opacity(
-                                    min(0.16, Double(max(0, viewModel.state.cascadeCount - 1)) * 0.03) + transientBoardGlow
+                                    min(
+                                        0.16,
+                                        Double(max(0, (viewModel.state.gameMode == .expert ? 1 : viewModel.state.cascadeCount) - 1)) * 0.03
+                                    ) + transientBoardGlow
                                 )
                             )
                             .allowsHitTesting(false)
@@ -289,10 +292,12 @@ struct GameView: View {
         HStack(spacing: 6) {
             inlineChip(text: "Lvl \(viewModel.state.level)", style: .level)
                 .accessibilityLabel("Level \(viewModel.state.level)")
-            inlineChip(text: "Cascade ×\(max(1, viewModel.state.cascadeCount))", style: .cascade)
-                .scaleEffect(cascadePulse ? 1.03 : 1.0)
-                .animation(.easeOut(duration: 0.16), value: cascadePulse)
-                .accessibilityLabel("Cascade \(max(1, viewModel.state.cascadeCount))")
+            if viewModel.showsCascadeHUD {
+                inlineChip(text: "Cascade ×\(max(1, viewModel.state.cascadeCount))", style: .cascade)
+                    .scaleEffect(cascadePulse ? 1.03 : 1.0)
+                    .animation(.easeOut(duration: 0.16), value: cascadePulse)
+                    .accessibilityLabel("Cascade \(max(1, viewModel.state.cascadeCount))")
+            }
             inlineChip(text: "Next \(viewModel.state.nextPieceDisplayText)", style: .next)
                 .accessibilityLabel("Next piece \(viewModel.state.nextPieceDisplayText)")
         }
@@ -416,6 +421,7 @@ struct GameView: View {
     }
 
     private func pulseCascade() {
+        guard viewModel.state.gameMode == .beginner else { return }
         cascadePulse = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
             cascadePulse = false

@@ -37,6 +37,10 @@ final class GameScreenViewModel: ObservableObject {
         state.isGameOver && state.score > runStartingBest
     }
 
+    var showsCascadeHUD: Bool {
+        state.gameMode == .beginner
+    }
+
     init(
         engine: GameEngine? = nil,
         highScoreStore: HighScoreStoring? = nil,

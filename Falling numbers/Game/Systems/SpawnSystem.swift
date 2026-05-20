@@ -21,6 +21,15 @@ struct SpawnSystem {
     }
 
     func nextTileKind(level: Int, mode: GameMode, specialSpawnChance: Double) -> TileKind {
+        nextTileKind(level: level, mode: mode, specialSpawnChance: specialSpawnChance, recentValues: [])
+    }
+
+    func nextTileKind(
+        level: Int,
+        mode: GameMode,
+        specialSpawnChance: Double,
+        recentValues: [Int]
+    ) -> TileKind {
         let allowsSpecial: Bool
         if mode == .expert {
             allowsSpecial = level >= 3
@@ -35,12 +44,29 @@ struct SpawnSystem {
             return .reorder
         }
 
-        return .number(nextValue(level: level, mode: mode))
+        return .number(nextValue(level: level, mode: mode, recentValues: recentValues))
     }
 
     func nextValue(level: Int, mode: GameMode) -> Int {
+        nextValue(level: level, mode: mode, recentValues: [])
+    }
+
+    func nextValue(level: Int, mode: GameMode, recentValues: [Int]) -> Int {
+        let maxRepeat = mode == .expert ? 2 : 3
+        let historyWindow = mode == .expert ? 10 : 6
+        let history = Array(recentValues.suffix(historyWindow))
+        let streakValue = history.last
+        let streakCount = trailingStreakCount(in: history)
+
         if mode == .expert {
-            return Int.random(in: 1...9)
+            let counts = Dictionary(grouping: history, by: { $0 }).mapValues(\.count)
+            let choices = Array(1...9)
+            let weights: [Double] = choices.map { value in
+                if streakValue == value, streakCount >= maxRepeat { return 0.0 }
+                let count = counts[value, default: 0]
+                return max(0.12, 1.0 - (Double(count) * 0.11))
+            }
+            return weightedChoice(choices: choices, weights: weights) ?? Int.random(in: 1...9)
         }
 
         // Board pressure tuning: keep early game approachable,
@@ -56,7 +82,14 @@ struct SpawnSystem {
         default:
             range = 4...9
         }
-        return Int.random(in: range)
+        var candidate = Int.random(in: range)
+        if streakValue == candidate, streakCount >= maxRepeat {
+            let filtered = Array(range).filter { $0 != candidate }
+            if let pick = filtered.randomElement() {
+                candidate = pick
+            }
+        }
+        return candidate
     }
 
     func nextSpawnColumn(columns: Int, mode: GameMode = .beginner, pressureTier: Int = 0) -> Int {
@@ -127,5 +160,29 @@ struct SpawnSystem {
             let distance = abs(Double(column) - center)
             return max(3, Int((12.0 - distance * 2.0).rounded()))
         }
+    }
+
+    private func trailingStreakCount(in values: [Int]) -> Int {
+        guard let last = values.last else { return 0 }
+        var count = 0
+        for value in values.reversed() {
+            if value != last { break }
+            count += 1
+        }
+        return count
+    }
+
+    private func weightedChoice(choices: [Int], weights: [Double]) -> Int? {
+        guard choices.count == weights.count, !choices.isEmpty else { return nil }
+        let positive = zip(choices, weights).filter { $0.1 > 0 }
+        guard !positive.isEmpty else { return nil }
+        let total = positive.reduce(0.0) { $0 + $1.1 }
+        guard total > 0 else { return nil }
+        var roll = Double.random(in: 0..<total)
+        for (value, weight) in positive {
+            if roll < weight { return value }
+            roll -= weight
+        }
+        return positive.last?.0
     }
 }

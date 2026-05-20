@@ -33,7 +33,8 @@ struct GameEngine {
         state.nextPieceKind = spawnSystem.nextTileKind(
             level: state.level,
             mode: state.gameMode,
-            specialSpawnChance: effectiveSpecialSpawnChance()
+            specialSpawnChance: effectiveSpecialSpawnChance(),
+            recentValues: state.spawnedNumberHistory
         )
     }
 
@@ -114,7 +115,8 @@ struct GameEngine {
         state.nextPieceKind = spawnSystem.nextTileKind(
             level: state.level,
             mode: state.gameMode,
-            specialSpawnChance: effectiveSpecialSpawnChance()
+            specialSpawnChance: effectiveSpecialSpawnChance(),
+            recentValues: state.spawnedNumberHistory
         )
         spawnIfNeeded()
     }
@@ -452,7 +454,7 @@ struct GameEngine {
             state.score += scoreBreakdown.awardedScore
             state.lastClearLength = scoreBreakdown.lineLength
             state.lastClearLengthMultiplier = scoreBreakdown.lengthMultiplier
-            state.specialSpawnChance = scoreSystem.specialSpawnChance(for: effectiveCascade)
+            state.specialSpawnChance = scoreSystem.specialSpawnChance(for: effectiveCascade, mode: state.gameMode)
             if state.gameMode == .beginner {
                 state.lastSumClearEvent = SumClearEvent(
                     values: selectedValues,
@@ -497,6 +499,10 @@ struct GameEngine {
                     clearedTilesInChain: chainClearedTiles
                 )
             }
+            if state.gameMode == .expert {
+                // Expert anti-cascade: one clear pass per lock, no recursive chain resolving.
+                break
+            }
         }
 
         if combo > 0, boardIsEmpty() {
@@ -511,7 +517,7 @@ struct GameEngine {
             state.perfectClearsCount += 1
             workingCascade = min(workingCascade + 1, 5)
             state.highestCascade = max(state.highestCascade, workingCascade)
-            state.specialSpawnChance = scoreSystem.specialSpawnChance(for: workingCascade)
+            state.specialSpawnChance = scoreSystem.specialSpawnChance(for: workingCascade, mode: state.gameMode)
             GameDebugLogger.logPerfectClear(
                 bonus: bonus,
                 cascade: workingCascade,
@@ -527,7 +533,7 @@ struct GameEngine {
             if state.movesWithoutClear >= 3 {
                 state.cascadeCount = 0
             }
-            state.specialSpawnChance = scoreSystem.specialSpawnChance(for: max(1, state.cascadeCount))
+            state.specialSpawnChance = scoreSystem.specialSpawnChance(for: max(1, state.cascadeCount), mode: state.gameMode)
         }
         updateProgressionState()
         applyPendingTargetChangeIfSafe()
@@ -637,6 +643,12 @@ struct GameEngine {
 
         state.activePiece = piece
         state.lastLockedPosition = nil
+        if let value = piece.kind.numericValue {
+            state.spawnedNumberHistory.append(value)
+            if state.spawnedNumberHistory.count > 12 {
+                state.spawnedNumberHistory.removeFirst(state.spawnedNumberHistory.count - 12)
+            }
+        }
         GameDebugLogger.logPieceSpawn(value: piece.kind.numericValue ?? 0, position: piece.position)
         let occupied = state.board.allOccupiedPositions().count
         let capacity = max(1, state.board.rows * state.board.columns)
@@ -651,7 +663,8 @@ struct GameEngine {
         state.nextPieceKind = spawnSystem.nextTileKind(
             level: state.level,
             mode: state.gameMode,
-            specialSpawnChance: effectiveSpecialSpawnChance()
+            specialSpawnChance: effectiveSpecialSpawnChance(),
+            recentValues: state.spawnedNumberHistory
         )
     }
 
@@ -735,12 +748,10 @@ struct GameEngine {
         // add a small deterministic prefill near the bottom to reduce empty-start feel,
         // while keeping spawn safe and avoiding immediate target clears.
         let templates: [[(rowFromBottom: Int, column: Int, value: Int)]] = [
-            // Sum clusters intentionally avoid target=10 on spawn (pairs sum to 9/7/9).
-            [(1, 1, 4), (1, 2, 5), (1, 7, 3), (1, 8, 4), (2, 4, 2), (2, 5, 7)],
-            // Sums avoid target=10 (8, 9, 6); keeps gaps and bottom-heavy placement.
-            [(1, 0, 3), (1, 1, 5), (1, 8, 5), (1, 9, 4), (2, 4, 2), (2, 6, 4)],
-            // Slightly denser (7 tiles), still avoiding immediate target line clears.
-            [(1, 1, 1), (1, 2, 8), (1, 6, 2), (1, 7, 7), (2, 4, 3), (2, 5, 5), (2, 8, 1)]
+            // 7x15 beginner board: avoid immediate target=10 line clears.
+            [(1, 1, 4), (1, 2, 5), (1, 4, 3), (1, 5, 4), (2, 2, 2), (2, 3, 7)],
+            [(1, 0, 3), (1, 1, 5), (1, 4, 5), (1, 6, 4), (2, 2, 2), (2, 5, 4)],
+            [(1, 1, 1), (1, 2, 8), (1, 4, 2), (1, 5, 7), (2, 2, 3), (2, 3, 5), (2, 6, 1)]
         ]
 
         let template = templates[abs(config.startingLayoutSeed) % templates.count]

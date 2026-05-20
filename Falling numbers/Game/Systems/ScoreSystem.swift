@@ -48,6 +48,13 @@ struct ScoreSystem {
     }
 
     func specialSpawnChance(for cascade: Int) -> Double {
+        specialSpawnChance(for: cascade, mode: .beginner)
+    }
+
+    func specialSpawnChance(for cascade: Int, mode: GameMode) -> Double {
+        if mode == .expert {
+            return 0.02
+        }
         switch cascade {
         case ...1:
             return 0.02
@@ -107,7 +114,7 @@ struct ScoreSystem {
     ) -> ClearScoreBreakdown {
         let baseScore = tileCount * 10
         let lengthMultiplier = lengthMultiplier(for: tileCount)
-        let cascadeMultiplier = cascadeMultiplier(for: cascade)
+        let cascadeMultiplier = expertMode ? 1.0 : cascadeMultiplier(for: cascade)
         let directionalMultiplier = isHorizontal ? horizontalBonusMultiplier : 1.0
         let expertMultiplier = expertMode ? 1.2 : 1.0
         let final = Int((Double(baseScore) * lengthMultiplier * cascadeMultiplier * directionalMultiplier * expertMultiplier).rounded())
