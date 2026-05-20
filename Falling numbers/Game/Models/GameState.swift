@@ -37,6 +37,7 @@ struct GameState {
     var expertSpawnPressureTier: Int
     var expertBurstRemaining: Int
     var expertBurstColumn: Int?
+    var spawnedNumberHistory: [Int]
     var telemetry: SessionTelemetry
     var currentTickInterval: TimeInterval
     var isGameOver: Bool
@@ -49,7 +50,7 @@ struct GameState {
     static func initial(config: GameConfig, mode: GameMode) -> GameState {
         GameState(
             gameMode: mode,
-            board: Board(rows: config.rows, columns: config.columns),
+            board: Board(rows: config.rows(for: mode), columns: config.columns(for: mode)),
             activePiece: nil,
             lastLockedPosition: nil,
             isLockDelayActive: false,
@@ -84,6 +85,7 @@ struct GameState {
             expertSpawnPressureTier: 0,
             expertBurstRemaining: 0,
             expertBurstColumn: nil,
+            spawnedNumberHistory: [],
             telemetry: .initial,
             currentTickInterval: config.tickInterval,
             isGameOver: false,

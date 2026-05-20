@@ -11,6 +11,8 @@ struct GameConfig {
     let startingLayoutSeed: Int
     let perfectClearBonusBase: Int
     let perfectClearBonusPerLevel: Int
+    let beginnerColumnsOverride: Int?
+    let beginnerRowsOverride: Int?
 
     init(
         columns: Int,
@@ -22,7 +24,9 @@ struct GameConfig {
         baseTargetNumber: Int,
         startingLayoutSeed: Int = 1,
         perfectClearBonusBase: Int = 250,
-        perfectClearBonusPerLevel: Int = 100
+        perfectClearBonusPerLevel: Int = 100,
+        beginnerColumnsOverride: Int? = nil,
+        beginnerRowsOverride: Int? = nil
     ) {
         self.columns = columns
         self.rows = rows
@@ -34,6 +38,8 @@ struct GameConfig {
         self.startingLayoutSeed = startingLayoutSeed
         self.perfectClearBonusBase = perfectClearBonusBase
         self.perfectClearBonusPerLevel = perfectClearBonusPerLevel
+        self.beginnerColumnsOverride = beginnerColumnsOverride
+        self.beginnerRowsOverride = beginnerRowsOverride
     }
 
     static let `default` = GameConfig(
@@ -46,6 +52,26 @@ struct GameConfig {
         baseTargetNumber: 10,
         startingLayoutSeed: 1,
         perfectClearBonusBase: 250,
-        perfectClearBonusPerLevel: 100
+        perfectClearBonusPerLevel: 100,
+        beginnerColumnsOverride: 7,
+        beginnerRowsOverride: 15
     )
+
+    func columns(for mode: GameMode) -> Int {
+        switch mode {
+        case .beginner:
+            return beginnerColumnsOverride ?? columns
+        case .expert:
+            return columns
+        }
+    }
+
+    func rows(for mode: GameMode) -> Int {
+        switch mode {
+        case .beginner:
+            return beginnerRowsOverride ?? rows
+        case .expert:
+            return rows
+        }
+    }
 }
