@@ -30,24 +30,27 @@ struct GameView: View {
                 .ignoresSafeArea()
 
             GeometryReader { proxy in
+                let isBeginner = viewModel.state.gameMode == .beginner
                 let sidePadding: CGFloat = 8
-                let contentPadding: CGFloat = 12
+                let contentPadding: CGFloat = isBeginner ? 8 : 12
                 let topInset = max(2, proxy.safeAreaInsets.top)
+                let beginnerHeroHeight: CGFloat = 166
 
-                let topRowHeight: CGFloat = 36
-                let secondRowHeight: CGFloat = 36
-                let thirdRowHeight: CGFloat = 30
-                let boardTopGap: CGFloat = 8
+                let topRowHeight: CGFloat = isBeginner ? 30 : 36
+                let secondRowHeight: CGFloat = isBeginner ? 46 : 36
+                let thirdRowHeight: CGFloat = isBeginner ? 28 : 30
+                let boardTopGap: CGFloat = isBeginner ? 4 : 8
                 let controlsReservedHeight: CGFloat = voiceOverEnabled ? 66 : 8
-                let verticalSpacing: CGFloat = 6
+                let verticalSpacing: CGFloat = isBeginner ? 3 : 6
 
+                let heroHeight = isBeginner
+                    ? beginnerHeroHeight
+                    : topRowHeight + secondRowHeight + thirdRowHeight + verticalSpacing * 2
                 let fixedVertical = topInset
-                    + topRowHeight
-                    + secondRowHeight
-                    + thirdRowHeight
+                    + heroHeight
                     + boardTopGap
                     + controlsReservedHeight
-                    + verticalSpacing * 3
+                    + verticalSpacing
 
                 let availableBoardHeight = max(220, proxy.size.height - fixedVertical)
                 let maxBoardWidth = max(170, proxy.size.width - sidePadding * 2)
@@ -55,17 +58,23 @@ struct GameView: View {
                 let boardWidth = boardHeight * 0.5
 
                 VStack(spacing: verticalSpacing) {
-                    topPrimaryLayer
-                        .frame(height: topRowHeight)
-                        .padding(.horizontal, contentPadding)
+                    if isBeginner {
+                        beginnerHeroSection
+                            .frame(height: beginnerHeroHeight)
+                            .padding(.horizontal, contentPadding)
+                    } else {
+                        topPrimaryLayer
+                            .frame(height: topRowHeight)
+                            .padding(.horizontal, contentPadding)
 
-                    targetRowLayer
-                        .frame(height: secondRowHeight)
-                        .padding(.horizontal, contentPadding)
+                        targetRowLayer
+                            .frame(height: secondRowHeight)
+                            .padding(.horizontal, contentPadding)
 
-                    topStatusLayer
-                        .frame(height: thirdRowHeight)
-                        .padding(.horizontal, contentPadding)
+                        topStatusLayer
+                            .frame(height: thirdRowHeight)
+                            .padding(.horizontal, contentPadding)
+                    }
 
                     Color.clear.frame(height: boardTopGap)
 
@@ -176,7 +185,7 @@ struct GameView: View {
                     )
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .padding(.top, topInset)
+                .padding(.top, isBeginner ? max(0, topInset - 8) : topInset)
                 .padding(.horizontal, sidePadding)
                 .overlay(alignment: .bottom) {
                     helperHintOverlay
@@ -303,25 +312,141 @@ struct GameView: View {
         }
     }
 
+    private var beginnerHeroSection: some View {
+        let chipWidth: CGFloat = 108
+        let chipHeight: CGFloat = 32
+
+        return HStack(alignment: .top, spacing: 10) {
+            VStack(spacing: 6) {
+                beginnerUnifiedChip(
+                    text: "Score \(viewModel.state.score)",
+                    style: .score,
+                    width: chipWidth,
+                    height: chipHeight
+                )
+                    .scaleEffect(scorePulse ? 1.02 : 1.0)
+                    .animation(.easeOut(duration: 0.14), value: scorePulse)
+                    .accessibilityLabel("Score \(viewModel.state.score)")
+
+                beginnerUnifiedChip(
+                    text: "Level \(viewModel.state.level)",
+                    style: .level,
+                    width: chipWidth,
+                    height: chipHeight
+                )
+                    .accessibilityLabel("Level \(viewModel.state.level)")
+
+                beginnerUnifiedChip(
+                    text: "Next \(viewModel.state.nextPieceDisplayText)",
+                    style: .next,
+                    width: chipWidth,
+                    height: chipHeight
+                )
+                    .accessibilityLabel("Next piece \(viewModel.state.nextPieceDisplayText)")
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+
+            VStack(spacing: 2) {
+                Text("TARGET")
+                    .font(.caption.weight(.heavy))
+                    .tracking(1.2)
+                    .foregroundStyle(Color.white.opacity(0.95))
+
+                ZStack {
+                    Circle()
+                        .stroke(
+                            AngularGradient(
+                                colors: [
+                                    Color(red: 1.00, green: 0.73, blue: 0.24),
+                                    Color(red: 0.99, green: 0.53, blue: 0.24),
+                                    Color(red: 0.98, green: 0.41, blue: 0.65),
+                                    Color(red: 0.66, green: 0.41, blue: 0.93),
+                                    Color(red: 0.24, green: 0.77, blue: 0.74),
+                                    Color(red: 0.23, green: 0.64, blue: 0.98),
+                                    Color(red: 1.00, green: 0.73, blue: 0.24)
+                                ],
+                                center: .center
+                            ),
+                            lineWidth: 6
+                        )
+                        .frame(width: 102, height: 102)
+                        .shadow(color: NeonTheme.glowColor.opacity(0.3), radius: 8)
+
+                    Text("\(viewModel.state.targetNumber)")
+                        .font(.system(size: 44, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Color.white)
+                        .minimumScaleFactor(0.75)
+                }
+                .scaleEffect(targetPulse ? 1.05 : 1.0)
+                .animation(.easeOut(duration: 0.2), value: targetPulse)
+            }
+            .frame(maxWidth: .infinity, alignment: .top)
+            .accessibilityLabel("Target \(viewModel.state.targetNumber)")
+
+            VStack(spacing: 6) {
+                beginnerUnifiedChip(
+                    text: "Best \(viewModel.highScore)",
+                    style: .best,
+                    width: chipWidth,
+                    height: chipHeight
+                )
+                    .accessibilityLabel("High score \(viewModel.highScore)")
+
+                beginnerUnifiedChip(
+                    text: "Cascade ×\(max(1, viewModel.state.cascadeCount))",
+                    style: .cascade,
+                    width: chipWidth,
+                    height: chipHeight
+                )
+                    .scaleEffect(cascadePulse ? 1.02 : 1.0)
+                    .animation(.easeOut(duration: 0.14), value: cascadePulse)
+                    .accessibilityLabel("Cascade \(max(1, viewModel.state.cascadeCount))")
+
+                beginnerPauseChip(width: chipWidth, height: chipHeight)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .frame(maxWidth: .infinity, alignment: .topTrailing)
+        }
+    }
+
+    private func beginnerUnifiedChip(text: String, style: HUDChipStyle, width: CGFloat, height: CGFloat) -> some View {
+        inlineChip(text: text, style: style, compact: true)
+            .frame(width: width, height: height)
+    }
+
+    private func beginnerPauseChip(width: CGFloat, height: CGFloat) -> some View {
+        Button {
+            viewModel.togglePause()
+        } label: {
+            beginnerUnifiedChip(
+                text: "Pause",
+                style: .pause,
+                width: width,
+                height: height
+            )
+        }
+        .accessibilityLabel(viewModel.state.isPaused ? "Resume game" : "Pause game")
+    }
+
     private var targetRowLayer: some View {
         HStack(spacing: 6) {
-            targetInlineChip
+            targetInlineChip()
                 .frame(maxWidth: .infinity)
                 .accessibilityLabel("Target \(viewModel.state.targetNumber)")
         }
     }
 
-    private var targetInlineChip: some View {
+    private func targetInlineChip(compact: Bool = false) -> some View {
         Text("TARGET \(viewModel.state.targetNumber)")
-            .font(.subheadline.weight(.heavy))
+            .font((compact ? Font.title3 : Font.subheadline).weight(.heavy))
             .tracking(0.4)
             .foregroundStyle(Color.white)
             .lineLimit(1)
             .minimumScaleFactor(0.85)
-            .padding(.horizontal, 12)
+            .padding(.horizontal, compact ? 14 : 12)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: compact ? 9 : 10)
                     .fill(
                         LinearGradient(
                             colors: [NeonTheme.accentPrimary, NeonTheme.accentSecondary],
@@ -331,10 +456,10 @@ struct GameView: View {
                     )
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.white.opacity(0.28), lineWidth: 1.0)
+                RoundedRectangle(cornerRadius: compact ? 9 : 10)
+                    .stroke(Color.white.opacity(0.28), lineWidth: compact ? 1.05 : 1.0)
             )
-            .shadow(color: NeonTheme.glowColor.opacity(0.35), radius: 8)
+            .shadow(color: NeonTheme.glowColor.opacity(0.35), radius: compact ? 9 : 8)
             .scaleEffect(targetPulse ? 1.06 : 1.0)
             .animation(.easeOut(duration: 0.2), value: targetPulse)
     }
@@ -772,12 +897,12 @@ struct GameView: View {
         .accessibilityLabel("\(title) \(value)")
     }
 
-    private func iconButton(symbol: String, accessibilityLabel: String, action: @escaping () -> Void) -> some View {
+    private func iconButton(symbol: String, compact: Bool = false, accessibilityLabel: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: compact ? 14 : 16, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.94))
-                .frame(width: 30, height: 30)
+                .frame(width: compact ? 28 : 30, height: compact ? 28 : 30)
                 .background(
                     LinearGradient(
                         colors: [
@@ -789,7 +914,7 @@ struct GameView: View {
                     )
                 )
                 .clipShape(Circle())
-                .overlay(Circle().stroke(Color.white.opacity(0.28), lineWidth: 0.8))
+                .overlay(Circle().stroke(Color.white.opacity(0.28), lineWidth: compact ? 0.7 : 0.8))
         }
         .accessibilityLabel(accessibilityLabel)
     }
@@ -800,9 +925,44 @@ struct GameView: View {
         case level
         case cascade
         case next
+        case pause
     }
 
-    private func inlineChip(text: String, style: HUDChipStyle) -> some View {
+    private struct HUDChipMetrics {
+        let font: Font
+        let horizontalPadding: CGFloat
+        let verticalPadding: CGFloat
+        let cornerRadius: CGFloat
+        let strokeLineWidth: CGFloat
+        let shadowRadius: CGFloat
+        let shadowOpacity: Double
+    }
+
+    private func hudChipMetrics(compact: Bool) -> HUDChipMetrics {
+        if compact {
+            return HUDChipMetrics(
+                font: .caption.weight(.semibold),
+                horizontalPadding: 8,
+                verticalPadding: 2,
+                cornerRadius: 9,
+                strokeLineWidth: 0.65,
+                shadowRadius: 5,
+                shadowOpacity: 0.24
+            )
+        }
+        return HUDChipMetrics(
+            font: .footnote.weight(.semibold),
+            horizontalPadding: 10,
+            verticalPadding: 0,
+            cornerRadius: 10,
+            strokeLineWidth: 0.7,
+            shadowRadius: 6,
+            shadowOpacity: 0.26
+        )
+    }
+
+    private func inlineChip(text: String, style: HUDChipStyle, compact: Bool = false) -> some View {
+        let metrics = hudChipMetrics(compact: compact)
         let gradient: LinearGradient
         switch style {
         case .score:
@@ -835,22 +995,41 @@ struct GameView: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
+        case .pause:
+            gradient = LinearGradient(
+                colors: [Color(red: 0.36, green: 0.25, blue: 0.73), Color(red: 0.22, green: 0.53, blue: 0.95)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
         }
 
         return Text(text)
-            .font(.footnote.weight(.semibold))
+            .font(metrics.font)
             .foregroundStyle(Color.white)
             .lineLimit(1)
             .minimumScaleFactor(0.85)
-            .padding(.horizontal, 10)
+            .padding(.horizontal, metrics.horizontalPadding)
+            .padding(.vertical, metrics.verticalPadding)
             .frame(maxHeight: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: metrics.cornerRadius)
                     .fill(gradient)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.white.opacity(0.24), lineWidth: 0.7)
+                RoundedRectangle(cornerRadius: metrics.cornerRadius)
+                    .stroke(Color.white.opacity(0.24), lineWidth: metrics.strokeLineWidth)
+            )
+            .shadow(color: Color.black.opacity(metrics.shadowOpacity), radius: metrics.shadowRadius, y: 1)
+            .overlay(
+                RoundedRectangle(cornerRadius: metrics.cornerRadius)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.18), Color.clear],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .blendMode(.screen)
             )
     }
 
