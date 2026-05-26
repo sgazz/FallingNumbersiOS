@@ -25,10 +25,15 @@ struct GameView: View {
     @State private var perfectClearVisible = false
     @State private var cascadeBannerText: String?
     @State private var powerUpBannerText: String?
-    @State private var sumBannerText: String?
-    @State private var sumBannerX: CGFloat = 0.5
-    @State private var sumBannerY: CGFloat = 0.5
-    @State private var sumBannerRise: CGFloat = 0
+    /// Beginner-only: friendly “how the sum works” banner above the lower board edge.
+    private struct SumLearnBanner: Equatable {
+        let mainLine: String
+        let subLine: String
+        let accessibilitySummary: String
+    }
+
+    @State private var sumLearnBanner: SumLearnBanner?
+    @State private var sumBannerBottomOffset: CGFloat = 12
     @State private var boardOffsetY: CGFloat = 0
     @State private var boardScale: CGFloat = 1.0
     @State private var transientBoardGlow: Double = 0
@@ -142,26 +147,35 @@ struct GameView: View {
                                 .transition(.opacity.combined(with: .scale(scale: 0.93)))
                         }
                     }
-                    .overlay {
-                        if let sumBannerText {
-                            GeometryReader { geo in
-                                Text(sumBannerText)
-                                    .font(.headline.weight(.heavy))
+                    .overlay(alignment: .bottom) {
+                        if let sumLearnBanner {
+                            VStack(spacing: 6) {
+                                Text(sumLearnBanner.mainLine)
+                                    .font(.title3.weight(.heavy))
                                     .foregroundStyle(NeonTheme.textPrimary)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 7)
-                                    .background(NeonTheme.chipFill.opacity(0.98))
-                                    .overlay(
-                                        Capsule()
-                                            .stroke(NeonTheme.chipStroke, lineWidth: 1)
-                                    )
-                                    .clipShape(Capsule())
-                                    .position(
-                                        x: max(46, min(geo.size.width - 46, geo.size.width * sumBannerX)),
-                                        y: max(26, min(geo.size.height - 26, geo.size.height * sumBannerY + sumBannerRise))
-                                    )
+                                    .multilineTextAlignment(.center)
+                                    .minimumScaleFactor(0.68)
+                                    .lineLimit(2)
+                                Text(sumLearnBanner.subLine)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(NeonTheme.textSecondary)
+                                    .multilineTextAlignment(.center)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
-                            .transition(.opacity)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            .frame(maxWidth: .infinity)
+                            .background(NeonTheme.chipFill.opacity(0.97))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .stroke(NeonTheme.chipStroke, lineWidth: 1)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                            .padding(.horizontal, 6)
+                            .padding(.bottom, sumBannerBottomOffset)
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel(sumLearnBanner.accessibilitySummary)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
                         }
                     }
                     .scaleEffect(boardScale)
@@ -538,23 +552,45 @@ struct GameView: View {
     private func showSumClearFeedback() {
         guard let event = viewModel.lastSumClearEvent, !event.values.isEmpty else { return }
         let expression = event.values.map(String.init).joined(separator: " + ")
-        sumBannerText = "\(expression) = \(event.target)"
+        let mainLine = "\(expression) = \(event.target)"
 
-        let avgRow = event.positions.map(\.row).reduce(0, +) / max(1, event.positions.count)
-        let avgColumn = event.positions.map(\.column).reduce(0, +) / max(1, event.positions.count)
-        let rowFraction = CGFloat(avgRow + 1) / CGFloat(max(1, viewModel.state.board.rows))
-        let colFraction = CGFloat(avgColumn + 1) / CGFloat(max(1, viewModel.state.board.columns))
-        sumBannerX = colFraction
-        sumBannerY = rowFraction
-        sumBannerRise = 0
-
-        withAnimation(.easeOut(duration: 0.28)) {
-            sumBannerRise = -24
+        let lineKindSentence = event.direction == .horizontal ? "along one row" : "in one column"
+        let countWord = event.values.count == 1 ? "tile" : "tiles"
+        let subLine: String
+        if event.cascade > 1 {
+            subLine = "Together they make \(event.target), your target • chain step \(event.cascade)"
+        } else if event.values.count >= 3 {
+            subLine =
+                "\(event.values.count) \(countWord) \(lineKindSentence) add up to your target \(event.target). Nice!"
+        } else {
+            subLine = "Tiles \(lineKindSentence) reached your target \(event.target) • line clears!"
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.95) {
-            withAnimation(.easeIn(duration: 0.2)) {
-                sumBannerText = nil
-                sumBannerRise = 0
+
+        let spell = NumberFormatter()
+        spell.locale = Locale(identifier: "en_US")
+        spell.numberStyle = .spellOut
+        let spokenParts = event.values.compactMap { spell.string(from: NSNumber(value: $0)) }
+        let spokenSum = spokenParts.joined(separator: ", plus ")
+        let targetSpoken = spell.string(from: NSNumber(value: event.target)) ?? "\(event.target)"
+        let directionSpoken = event.direction == .horizontal ? "horizontal row" : "vertical column"
+        let chainSpoken = event.cascade > 1 ? " Chain step \(event.cascade)." : ""
+        let accessibilitySummary =
+            "\(spokenSum), equals \(targetSpoken), your target. \(directionSpoken).\(chainSpoken)"
+
+        sumLearnBanner = SumLearnBanner(
+            mainLine: mainLine,
+            subLine: subLine,
+            accessibilitySummary: accessibilitySummary
+        )
+        sumBannerBottomOffset = 4
+
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+            sumBannerBottomOffset = 14
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.15) {
+            withAnimation(.easeIn(duration: 0.22)) {
+                sumLearnBanner = nil
+                sumBannerBottomOffset = 12
             }
         }
     }

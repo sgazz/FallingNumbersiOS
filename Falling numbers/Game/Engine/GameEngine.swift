@@ -98,6 +98,7 @@ struct GameEngine {
             hardDrop()
         case .tick:
             recordActiveGameplayTime()
+            guard !endGameIfAnyColumnFilledToTop() else { return }
             applyPendingTargetChangeIfSafe()
             advanceTargetTimerIfNeeded()
             stepDownOrLock()
@@ -615,21 +616,27 @@ struct GameEngine {
 
     private mutating func spawnIfNeeded() {
         guard state.activePiece == nil else { return }
+        guard !endGameIfAnyColumnFilledToTop() else { return }
 
         let spawnKind = state.nextPieceKind
-        let forcedColumn = nextExpertBurstColumnIfNeeded()
+        advanceExpertBurstIfNeeded()
+        let preferredColumn: Int? = state.gameMode == .expert
+            ? spawnSystem.expertSpawnColumn(columns: state.board.columns)
+            : nil
         guard let piece = spawnSystem.makePiece(
             on: state.board,
             kind: spawnKind,
             mode: state.gameMode,
             pressureTier: state.expertSpawnPressureTier,
-            preferredColumn: forcedColumn
+            preferredColumn: preferredColumn
         ) else {
-            state.isGameOver = true
-            state.telemetry.gameOverReason = .spawnBlocked
-            let blocked = GridPosition(row: 0, column: state.board.columns / 2)
-            GameDebugLogger.logGameOver(spawnPosition: blocked, board: state.board)
-            logBalanceSummaryIfNeeded()
+            if !endGameIfAnyColumnFilledToTop() {
+                state.isGameOver = true
+                state.telemetry.gameOverReason = .spawnBlocked
+                let blocked = GridPosition(row: 0, column: state.board.columns / 2)
+                GameDebugLogger.logGameOver(spawnPosition: blocked, board: state.board)
+                logBalanceSummaryIfNeeded()
+            }
             return
         }
 
@@ -698,25 +705,17 @@ struct GameEngine {
         return adjustedChance
     }
 
-    private mutating func nextExpertBurstColumnIfNeeded() -> Int? {
-        guard state.gameMode == .expert, state.expertPressureRampActive else { return nil }
-        if state.expertBurstRemaining > 0, let column = state.expertBurstColumn {
+    private mutating func advanceExpertBurstIfNeeded() {
+        guard state.gameMode == .expert, state.expertPressureRampActive else { return }
+        if state.expertBurstRemaining > 0 {
             state.expertBurstRemaining -= 1
-            return column
+            return
         }
-        let occupancy = occupancyPercent()
         let burst = spawnSystem.expertBurstLength(
             pressureTier: state.expertSpawnPressureTier,
-            occupancyPercent: occupancy
+            occupancyPercent: occupancyPercent()
         )
-        let column = spawnSystem.nextSpawnColumn(
-            columns: state.board.columns,
-            mode: state.gameMode,
-            pressureTier: state.expertSpawnPressureTier
-        )
-        state.expertBurstColumn = column
         state.expertBurstRemaining = max(0, burst - 1)
-        return column
     }
 
     private mutating func updateExpertPressureState() {
@@ -907,6 +906,10 @@ struct GameEngine {
     }
 
     private func boardNearDeath() -> Bool {
+        isAnyColumnFilledToTop()
+    }
+
+    private func isAnyColumnFilledToTop() -> Bool {
         guard state.board.rows > 0 else { return false }
         for column in 0..<state.board.columns {
             if state.board.cell(at: GridPosition(row: 0, column: column)) != nil {
@@ -914,6 +917,18 @@ struct GameEngine {
             }
         }
         return false
+    }
+
+    @discardableResult
+    private mutating func endGameIfAnyColumnFilledToTop() -> Bool {
+        guard !state.isGameOver, isAnyColumnFilledToTop() else { return state.isGameOver }
+        state.isGameOver = true
+        state.activePiece = nil
+        state.telemetry.gameOverReason = .columnFilledToTop
+        let blocked = GridPosition(row: 0, column: state.board.columns / 2)
+        GameDebugLogger.logGameOver(spawnPosition: blocked, board: state.board)
+        logBalanceSummaryIfNeeded()
+        return true
     }
 
     private mutating func recordOccupancySample() {

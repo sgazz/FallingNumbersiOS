@@ -1,6 +1,7 @@
 import Foundation
 
 enum GameOverReason: String, Equatable, Hashable {
+    case columnFilledToTop
     case spawnBlocked
     case unknown
 }

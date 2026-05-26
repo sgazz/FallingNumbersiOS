@@ -769,6 +769,34 @@ struct FallingNumbersTests {
     }
 
     @Test
+    func expertSpawnUsesSingleFixedColumn() {
+        let spawnSystem = SpawnSystem()
+        let column = spawnSystem.expertSpawnColumn(columns: 10)
+        #expect(column == 5)
+
+        for offset in 0..<200 {
+            #expect(spawnSystem.nextSpawnColumn(columns: 10, mode: .expert) == column)
+            let piece = spawnSystem.makePiece(
+                on: Board(rows: 20, columns: 10),
+                kind: .number(offset % 9 + 1),
+                mode: .expert
+            )
+            #expect(piece?.position.column == column)
+        }
+    }
+
+    @Test
+    func expertDoesNotSpawnFromAdjacentWhenSpawnPointBlocked() {
+        let spawnSystem = SpawnSystem()
+        var board = Board(rows: 6, columns: 10)
+        let spawnColumn = spawnSystem.expertSpawnColumn(columns: board.columns)
+        board.setCell(Cell(value: 9), at: GridPosition(row: 0, column: spawnColumn))
+
+        let piece = spawnSystem.makePiece(on: board, kind: .number(4), mode: .expert)
+        #expect(piece == nil)
+    }
+
+    @Test
     func beginnerSpecialTilesStartLaterThanExpert() {
         let spawnSystem = SpawnSystem()
         for _ in 0..<150 {
@@ -1339,7 +1367,21 @@ struct FallingNumbersTests {
     }
 
     @Test
-    func gameOverWhenSpawnCellIsBlocked() {
+    func gameOverWhenAnyColumnFilledToTop() {
+        let config = GameConfig(columns: 10, rows: 20, tickInterval: 0.5, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board.setCell(Cell(value: 7), at: GridPosition(row: 0, column: 3))
+
+        var engine = GameEngine(state: state, config: config)
+        engine.send(.start)
+
+        #expect(engine.state.isGameOver)
+        #expect(engine.state.activePiece == nil)
+        #expect(engine.state.telemetry.gameOverReason == .columnFilledToTop)
+    }
+
+    @Test
+    func gameOverWhenAllSpawnCellsBlocked() {
         let config = GameConfig(columns: 10, rows: 20, tickInterval: 0.5, baseTargetNumber: 10)
         var state = GameState.initial(config: config)
         for column in 0..<config.columns {
@@ -1351,6 +1393,7 @@ struct FallingNumbersTests {
 
         #expect(engine.state.isGameOver)
         #expect(engine.state.activePiece == nil)
+        #expect(engine.state.telemetry.gameOverReason == .columnFilledToTop)
     }
 
     @Test

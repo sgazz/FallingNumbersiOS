@@ -9,7 +9,12 @@ struct SpawnSystem {
         preferredColumn overrideColumn: Int? = nil
     ) -> FallingPiece? {
         let preferredColumn = overrideColumn ?? nextSpawnColumn(columns: board.columns, mode: mode, pressureTier: pressureTier)
-        if let column = bestAvailableSpawnColumn(on: board, preferredColumn: preferredColumn) {
+        let allowLateralFallback = mode != .expert
+        if let column = bestAvailableSpawnColumn(
+            on: board,
+            preferredColumn: preferredColumn,
+            allowLateralFallback: allowLateralFallback
+        ) {
             let spawn = GridPosition(row: 0, column: column)
             return FallingPiece(kind: kind, position: spawn)
         }
@@ -92,8 +97,16 @@ struct SpawnSystem {
         return candidate
     }
 
+    func expertSpawnColumn(columns: Int) -> Int {
+        guard columns > 0 else { return 0 }
+        return columns / 2
+    }
+
     func nextSpawnColumn(columns: Int, mode: GameMode = .beginner, pressureTier: Int = 0) -> Int {
         guard columns > 0 else { return 0 }
+        if mode == .expert {
+            return expertSpawnColumn(columns: columns)
+        }
         let weights = spawnWeights(columns: columns, mode: mode, pressureTier: pressureTier)
         let total = max(1, weights.reduce(0, +))
         var roll = Int.random(in: 0..<total)
@@ -104,12 +117,17 @@ struct SpawnSystem {
         return min(columns - 1, columns / 2)
     }
 
-    private func bestAvailableSpawnColumn(on board: Board, preferredColumn: Int) -> Int? {
+    private func bestAvailableSpawnColumn(
+        on board: Board,
+        preferredColumn: Int,
+        allowLateralFallback: Bool = true
+    ) -> Int? {
         guard board.columns > 0 else { return nil }
         let clampedPreferred = min(max(0, preferredColumn), board.columns - 1)
         if board.canPlace(at: GridPosition(row: 0, column: clampedPreferred)) {
             return clampedPreferred
         }
+        guard allowLateralFallback else { return nil }
 
         for offset in 1..<board.columns {
             let left = clampedPreferred - offset
