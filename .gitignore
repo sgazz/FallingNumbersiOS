@@ -1,0 +1,17 @@
+# Xcode / macOS
+**/xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+.DS_Store
+
+# Xcode build artefacts
+DerivedData/
+build/
+
+# Swift Package Manager
+.swiftpm/
+**/Package.resolved
+
+# SPM checkouts inside project (if any)
+**/SourcePackages/
