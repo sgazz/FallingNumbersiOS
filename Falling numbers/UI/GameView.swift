@@ -30,22 +30,14 @@ struct GameView: View {
                 .ignoresSafeArea()
 
             GeometryReader { proxy in
-                let isBeginner = viewModel.state.gameMode == .beginner
                 let sidePadding: CGFloat = 8
-                let contentPadding: CGFloat = isBeginner ? 8 : 12
+                let contentPadding: CGFloat = 8
                 let topInset = max(2, proxy.safeAreaInsets.top)
-                let beginnerHeroHeight: CGFloat = 166
-
-                let topRowHeight: CGFloat = isBeginner ? 30 : 36
-                let secondRowHeight: CGFloat = isBeginner ? 46 : 36
-                let thirdRowHeight: CGFloat = isBeginner ? 28 : 30
-                let boardTopGap: CGFloat = isBeginner ? 4 : 8
+                let heroHeight: CGFloat = 166
+                let boardTopGap: CGFloat = 4
                 let controlsReservedHeight: CGFloat = voiceOverEnabled ? 66 : 8
-                let verticalSpacing: CGFloat = isBeginner ? 3 : 6
+                let verticalSpacing: CGFloat = 3
 
-                let heroHeight = isBeginner
-                    ? beginnerHeroHeight
-                    : topRowHeight + secondRowHeight + thirdRowHeight + verticalSpacing * 2
                 let fixedVertical = topInset
                     + heroHeight
                     + boardTopGap
@@ -58,23 +50,9 @@ struct GameView: View {
                 let boardWidth = boardHeight * 0.5
 
                 VStack(spacing: verticalSpacing) {
-                    if isBeginner {
-                        beginnerHeroSection
-                            .frame(height: beginnerHeroHeight)
-                            .padding(.horizontal, contentPadding)
-                    } else {
-                        topPrimaryLayer
-                            .frame(height: topRowHeight)
-                            .padding(.horizontal, contentPadding)
-
-                        targetRowLayer
-                            .frame(height: secondRowHeight)
-                            .padding(.horizontal, contentPadding)
-
-                        topStatusLayer
-                            .frame(height: thirdRowHeight)
-                            .padding(.horizontal, contentPadding)
-                    }
+                    gameHeroSection
+                        .frame(height: heroHeight)
+                        .padding(.horizontal, contentPadding)
 
                     Color.clear.frame(height: boardTopGap)
 
@@ -87,10 +65,10 @@ struct GameView: View {
                         RoundedRectangle(cornerRadius: 14)
                             .fill(
                                 Color.orange.opacity(
-                                    min(
-                                        0.16,
-                                        Double(max(0, (viewModel.state.gameMode == .expert ? 1 : viewModel.state.cascadeCount) - 1)) * 0.03
-                                    ) + transientBoardGlow
+                                    (viewModel.showsCascadeHUD
+                                        ? min(0.16, Double(max(0, viewModel.state.cascadeCount - 1)) * 0.03)
+                                        : 0)
+                                    + transientBoardGlow
                                 )
                             )
                             .allowsHitTesting(false)
@@ -185,7 +163,7 @@ struct GameView: View {
                     )
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .padding(.top, isBeginner ? max(0, topInset - 8) : topInset)
+                .padding(.top, max(0, topInset - 8))
                 .padding(.horizontal, sidePadding)
                 .overlay(alignment: .bottom) {
                     helperHintOverlay
@@ -255,7 +233,7 @@ struct GameView: View {
             pulseScore()
         }
         .onChange(of: viewModel.state.cascadeCount) { _, newValue in
-            if newValue > 0 {
+            if viewModel.showsCascadeHUD, newValue > 0 {
                 pulseCascade()
             }
         }
@@ -272,7 +250,7 @@ struct GameView: View {
             showPowerUpFeedback()
         }
         .onChange(of: viewModel.sumClearPulseToken) { _, _ in
-            showBeginnerSumFeedback()
+            showSumClearFeedback()
         }
         .onChange(of: viewModel.boardShakeToken) { _, _ in
             hardDropFeedback()
@@ -282,43 +260,13 @@ struct GameView: View {
         }
     }
 
-    private var topPrimaryLayer: some View {
-        HStack(spacing: 8) {
-            inlineChip(text: "Score \(viewModel.state.score)", style: .score)
-                .scaleEffect(scorePulse ? 1.03 : 1.0)
-                .animation(.easeOut(duration: 0.16), value: scorePulse)
-                .accessibilityLabel("Score \(viewModel.state.score)")
-            iconButton(symbol: "pause.circle", accessibilityLabel: viewModel.state.isPaused ? "Resume game" : "Pause game") {
-                viewModel.togglePause()
-            }
-            .frame(maxWidth: .infinity)
-            inlineChip(text: "Best \(viewModel.highScore)", style: .best)
-                .accessibilityLabel("High score \(viewModel.highScore)")
-        }
-    }
-
-    private var topStatusLayer: some View {
-        HStack(spacing: 6) {
-            inlineChip(text: "Lvl \(viewModel.state.level)", style: .level)
-                .accessibilityLabel("Level \(viewModel.state.level)")
-            if viewModel.showsCascadeHUD {
-                inlineChip(text: "Cascade ×\(max(1, viewModel.state.cascadeCount))", style: .cascade)
-                    .scaleEffect(cascadePulse ? 1.03 : 1.0)
-                    .animation(.easeOut(duration: 0.16), value: cascadePulse)
-                    .accessibilityLabel("Cascade \(max(1, viewModel.state.cascadeCount))")
-            }
-            inlineChip(text: "Next \(viewModel.state.nextPieceDisplayText)", style: .next)
-                .accessibilityLabel("Next piece \(viewModel.state.nextPieceDisplayText)")
-        }
-    }
-
-    private var beginnerHeroSection: some View {
+    private var gameHeroSection: some View {
         let chipWidth: CGFloat = 108
         let chipHeight: CGFloat = 32
 
         return HStack(alignment: .top, spacing: 10) {
             VStack(spacing: 6) {
-                beginnerUnifiedChip(
+                heroChip(
                     text: "Score \(viewModel.state.score)",
                     style: .score,
                     width: chipWidth,
@@ -328,7 +276,7 @@ struct GameView: View {
                     .animation(.easeOut(duration: 0.14), value: scorePulse)
                     .accessibilityLabel("Score \(viewModel.state.score)")
 
-                beginnerUnifiedChip(
+                heroChip(
                     text: "Level \(viewModel.state.level)",
                     style: .level,
                     width: chipWidth,
@@ -336,7 +284,7 @@ struct GameView: View {
                 )
                     .accessibilityLabel("Level \(viewModel.state.level)")
 
-                beginnerUnifiedChip(
+                heroChip(
                     text: "Next \(viewModel.state.nextPieceDisplayText)",
                     style: .next,
                     width: chipWidth,
@@ -347,6 +295,10 @@ struct GameView: View {
             .frame(maxWidth: .infinity, alignment: .topLeading)
 
             VStack(spacing: 2) {
+                Text(viewModel.state.formattedTargetChangeCountdown)
+                    .font(.caption2.weight(.bold).monospacedDigit())
+                    .foregroundStyle(Color.white.opacity(0.88))
+
                 Text("TARGET")
                     .font(.caption.weight(.heavy))
                     .tracking(1.2)
@@ -381,10 +333,13 @@ struct GameView: View {
                 .animation(.easeOut(duration: 0.2), value: targetPulse)
             }
             .frame(maxWidth: .infinity, alignment: .top)
-            .accessibilityLabel("Target \(viewModel.state.targetNumber)")
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(
+                "Target \(viewModel.state.targetNumber), changes in \(viewModel.state.formattedTargetChangeCountdown)"
+            )
 
             VStack(spacing: 6) {
-                beginnerUnifiedChip(
+                heroChip(
                     text: "Best \(viewModel.highScore)",
                     style: .best,
                     width: chipWidth,
@@ -392,33 +347,43 @@ struct GameView: View {
                 )
                     .accessibilityLabel("High score \(viewModel.highScore)")
 
-                beginnerUnifiedChip(
-                    text: "Cascade ×\(max(1, viewModel.state.cascadeCount))",
-                    style: .cascade,
-                    width: chipWidth,
-                    height: chipHeight
-                )
-                    .scaleEffect(cascadePulse ? 1.02 : 1.0)
-                    .animation(.easeOut(duration: 0.14), value: cascadePulse)
-                    .accessibilityLabel("Cascade \(max(1, viewModel.state.cascadeCount))")
+                if viewModel.showsCascadeHUD {
+                    heroChip(
+                        text: "Cascade ×\(max(1, viewModel.state.cascadeCount))",
+                        style: .cascade,
+                        width: chipWidth,
+                        height: chipHeight
+                    )
+                        .scaleEffect(cascadePulse ? 1.02 : 1.0)
+                        .animation(.easeOut(duration: 0.14), value: cascadePulse)
+                        .accessibilityLabel("Cascade \(max(1, viewModel.state.cascadeCount))")
+                } else {
+                    heroChip(
+                        text: "Time \(viewModel.state.formattedActivePlayTime)",
+                        style: .playTime,
+                        width: chipWidth,
+                        height: chipHeight
+                    )
+                        .accessibilityLabel("Play time \(viewModel.state.formattedActivePlayTime)")
+                }
 
-                beginnerPauseChip(width: chipWidth, height: chipHeight)
+                heroPauseChip(width: chipWidth, height: chipHeight)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .frame(maxWidth: .infinity, alignment: .topTrailing)
         }
     }
 
-    private func beginnerUnifiedChip(text: String, style: HUDChipStyle, width: CGFloat, height: CGFloat) -> some View {
+    private func heroChip(text: String, style: HUDChipStyle, width: CGFloat, height: CGFloat) -> some View {
         inlineChip(text: text, style: style, compact: true)
             .frame(width: width, height: height)
     }
 
-    private func beginnerPauseChip(width: CGFloat, height: CGFloat) -> some View {
+    private func heroPauseChip(width: CGFloat, height: CGFloat) -> some View {
         Button {
             viewModel.togglePause()
         } label: {
-            beginnerUnifiedChip(
+            heroChip(
                 text: "Pause",
                 style: .pause,
                 width: width,
@@ -426,42 +391,6 @@ struct GameView: View {
             )
         }
         .accessibilityLabel(viewModel.state.isPaused ? "Resume game" : "Pause game")
-    }
-
-    private var targetRowLayer: some View {
-        HStack(spacing: 6) {
-            targetInlineChip()
-                .frame(maxWidth: .infinity)
-                .accessibilityLabel("Target \(viewModel.state.targetNumber)")
-        }
-    }
-
-    private func targetInlineChip(compact: Bool = false) -> some View {
-        Text("TARGET \(viewModel.state.targetNumber)")
-            .font((compact ? Font.title3 : Font.subheadline).weight(.heavy))
-            .tracking(0.4)
-            .foregroundStyle(Color.white)
-            .lineLimit(1)
-            .minimumScaleFactor(0.85)
-            .padding(.horizontal, compact ? 14 : 12)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: compact ? 9 : 10)
-                    .fill(
-                        LinearGradient(
-                            colors: [NeonTheme.accentPrimary, NeonTheme.accentSecondary],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: compact ? 9 : 10)
-                    .stroke(Color.white.opacity(0.28), lineWidth: compact ? 1.05 : 1.0)
-            )
-            .shadow(color: NeonTheme.glowColor.opacity(0.35), radius: compact ? 9 : 8)
-            .scaleEffect(targetPulse ? 1.06 : 1.0)
-            .animation(.easeOut(duration: 0.2), value: targetPulse)
     }
 
     private var helperHintOverlay: some View {
@@ -546,7 +475,7 @@ struct GameView: View {
     }
 
     private func pulseCascade() {
-        guard viewModel.state.gameMode == .beginner else { return }
+        guard viewModel.showsCascadeHUD else { return }
         cascadePulse = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
             cascadePulse = false
@@ -610,7 +539,7 @@ struct GameView: View {
         }
     }
 
-    private func showBeginnerSumFeedback() {
+    private func showSumClearFeedback() {
         guard let event = viewModel.lastSumClearEvent, !event.values.isEmpty else { return }
         let expression = event.values.map(String.init).joined(separator: " + ")
         sumBannerText = "\(expression) = \(event.target)"
@@ -834,7 +763,9 @@ struct GameView: View {
             VStack(spacing: 6) {
                 recapRow(title: "Lines Cleared", value: "\(viewModel.state.linesCleared)")
                 recapRow(title: "Perfect Clears", value: "\(viewModel.state.perfectClearsCount)")
-                recapRow(title: "Highest Cascade", value: "×\(max(1, viewModel.state.highestCascade))")
+                if viewModel.showsCascadeHUD {
+                    recapRow(title: "Highest Cascade", value: "×\(max(1, viewModel.state.highestCascade))")
+                }
                 recapRow(title: "Longest Line", value: "\(viewModel.state.longestLineCleared)")
             }
             .padding(10)
@@ -897,28 +828,6 @@ struct GameView: View {
         .accessibilityLabel("\(title) \(value)")
     }
 
-    private func iconButton(symbol: String, compact: Bool = false, accessibilityLabel: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: compact ? 14 : 16, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.94))
-                .frame(width: compact ? 28 : 30, height: compact ? 28 : 30)
-                .background(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.36, green: 0.25, blue: 0.73),
-                            Color(red: 0.22, green: 0.53, blue: 0.95)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .clipShape(Circle())
-                .overlay(Circle().stroke(Color.white.opacity(0.28), lineWidth: compact ? 0.7 : 0.8))
-        }
-        .accessibilityLabel(accessibilityLabel)
-    }
-
     private enum HUDChipStyle {
         case score
         case best
@@ -926,6 +835,7 @@ struct GameView: View {
         case cascade
         case next
         case pause
+        case playTime
     }
 
     private struct HUDChipMetrics {
@@ -998,6 +908,12 @@ struct GameView: View {
         case .pause:
             gradient = LinearGradient(
                 colors: [Color(red: 0.36, green: 0.25, blue: 0.73), Color(red: 0.22, green: 0.53, blue: 0.95)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .playTime:
+            gradient = LinearGradient(
+                colors: [Color(red: 0.42, green: 0.52, blue: 0.96), Color(red: 0.24, green: 0.36, blue: 0.78)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )

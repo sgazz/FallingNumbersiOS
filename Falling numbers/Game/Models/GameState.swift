@@ -101,4 +101,18 @@ struct GameState {
     var nextPieceDisplayText: String {
         nextPieceKind.displayText
     }
+
+    var formattedActivePlayTime: String {
+        let total = max(0, Int(telemetry.activeGameplaySeconds.rounded(.down)))
+        let minutes = total / 60
+        let seconds = total % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+
+    var formattedTargetChangeCountdown: String {
+        let total = max(0, Int(targetTimerRemaining.rounded(.up)))
+        let minutes = total / 60
+        let seconds = total % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
 }

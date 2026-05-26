@@ -231,14 +231,19 @@ final class GameScreenViewModel: ObservableObject {
                 if settings.isSoundEnabled { audio.trigger(.lock) }
             }
             if state.cascadeCount > previous.cascadeCount, state.cascadeCount > 0 {
-                if settings.isHapticsEnabled { haptics.cleared(combo: state.cascadeCount) }
-                if settings.isSoundEnabled {
-                    audio.trigger(.clear)
-                    if state.cascadeCount >= 2 {
-                        audio.trigger(.cascade(level: state.cascadeCount))
+                if state.gameMode == .beginner {
+                    if settings.isHapticsEnabled { haptics.cleared(combo: state.cascadeCount) }
+                    if settings.isSoundEnabled {
+                        audio.trigger(.clear)
+                        if state.cascadeCount >= 2 {
+                            audio.trigger(.cascade(level: state.cascadeCount))
+                        }
                     }
+                    comboPulseToken &+= 1
+                } else if previous.cascadeCount == 0 {
+                    if settings.isHapticsEnabled { haptics.cleared(combo: 1) }
+                    if settings.isSoundEnabled { audio.trigger(.clear) }
                 }
-                comboPulseToken &+= 1
                 targetPulseToken &+= 1
             }
             if !previous.isGameOver, state.isGameOver {
@@ -273,8 +278,7 @@ final class GameScreenViewModel: ObservableObject {
                 }()
                 powerUpPulseToken &+= 1
             }
-            if state.sumClearEventToken != previous.sumClearEventToken,
-               state.gameMode == .beginner {
+            if state.sumClearEventToken != previous.sumClearEventToken {
                 lastSumClearEvent = state.lastSumClearEvent
                 sumClearPulseToken &+= 1
             }

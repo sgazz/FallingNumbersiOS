@@ -1194,8 +1194,28 @@ struct FallingNumbersTests {
     }
 
     @Test
+    func formattedActivePlayTimeUsesMinutesAndSeconds() {
+        var state = GameState.initial(config: GameConfig.default)
+        state.telemetry.activeGameplaySeconds = 125
+        #expect(state.formattedActivePlayTime == "2:05")
+        state.telemetry.activeGameplaySeconds = 59
+        #expect(state.formattedActivePlayTime == "0:59")
+    }
+
+    @Test
+    func formattedTargetChangeCountdownUsesMinutesAndSeconds() {
+        var state = GameState.initial(config: GameConfig.default)
+        state.targetTimerRemaining = 30
+        #expect(state.formattedTargetChangeCountdown == "0:30")
+        state.targetTimerRemaining = 0.4
+        #expect(state.formattedTargetChangeCountdown == "0:01")
+        state.targetTimerRemaining = 91.2
+        #expect(state.formattedTargetChangeCountdown == "1:32")
+    }
+
+    @Test
     @MainActor
-    func expertHUDStateExposed() {
+    func cascadeHUDOnlyInBeginnerMode() {
         let viewModel = GameScreenViewModel(engine: GameEngine(), highScoreStore: TestHighScoreStore(initial: 0))
         #expect(viewModel.state.gameMode == .beginner)
         #expect(viewModel.showsCascadeHUD)
