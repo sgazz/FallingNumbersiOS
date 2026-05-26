@@ -1,6 +1,19 @@
 import SwiftUI
 
 struct GameView: View {
+    private enum HeroLayout {
+        static let height: CGFloat = 122
+        static let chipWidth: CGFloat = 108
+        static let chipHeight: CGFloat = 30
+        static let chipSpacing: CGFloat = 4
+        static let centerStackSpacing: CGFloat = 1
+        static let targetRingSize: CGFloat = 98
+        static let targetFontSize: CGFloat = 42
+        /// Pull hero into the top safe-area margin; capped so status/notch content stays readable.
+        static let topSafeAreaOverlap: CGFloat = 14
+        static let topPaddingWithoutSafeArea: CGFloat = 2
+    }
+
     @ObservedObject var viewModel: GameScreenViewModel
     var onMainMenu: (() -> Void)? = nil
     var showsEmbeddedStartOverlay: Bool = false
@@ -32,13 +45,16 @@ struct GameView: View {
             GeometryReader { proxy in
                 let sidePadding: CGFloat = 8
                 let contentPadding: CGFloat = 8
-                let topInset = max(2, proxy.safeAreaInsets.top)
-                let heroHeight: CGFloat = 166
-                let boardTopGap: CGFloat = 4
+                let safeTop = proxy.safeAreaInsets.top
+                let heroTopPadding = safeTop > 0
+                    ? max(0, safeTop - HeroLayout.topSafeAreaOverlap)
+                    : HeroLayout.topPaddingWithoutSafeArea
+                let heroHeight = HeroLayout.height
+                let boardTopGap: CGFloat = 2
                 let controlsReservedHeight: CGFloat = voiceOverEnabled ? 66 : 8
-                let verticalSpacing: CGFloat = 3
+                let verticalSpacing: CGFloat = 2
 
-                let fixedVertical = topInset
+                let fixedVertical = heroTopPadding
                     + heroHeight
                     + boardTopGap
                     + controlsReservedHeight
@@ -51,7 +67,7 @@ struct GameView: View {
 
                 VStack(spacing: verticalSpacing) {
                     gameHeroSection
-                        .frame(height: heroHeight)
+                        .frame(height: heroHeight, alignment: .top)
                         .padding(.horizontal, contentPadding)
 
                     Color.clear.frame(height: boardTopGap)
@@ -148,11 +164,6 @@ struct GameView: View {
                             .transition(.opacity)
                         }
                     }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(NeonTheme.chipStroke, lineWidth: 0.8)
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
                     .scaleEffect(boardScale)
                     .offset(y: boardOffsetY)
                     .background(
@@ -163,19 +174,15 @@ struct GameView: View {
                     )
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .padding(.top, max(0, topInset - 8))
+                .padding(.top, heroTopPadding)
                 .padding(.horizontal, sidePadding)
-                .overlay(alignment: .bottom) {
-                    helperHintOverlay
-                        .padding(.bottom, 6)
-                }
 
 #if DEBUG
                 if viewModel.diagnosticsEnabled {
                     diagnosticsOverlay(
                         screenHeight: proxy.size.height,
                         boardHeight: boardHeight,
-                        topSpacing: topInset
+                        topSpacing: heroTopPadding
                     )
                 }
 #endif
@@ -261,11 +268,11 @@ struct GameView: View {
     }
 
     private var gameHeroSection: some View {
-        let chipWidth: CGFloat = 108
-        let chipHeight: CGFloat = 32
+        let chipWidth = HeroLayout.chipWidth
+        let chipHeight = HeroLayout.chipHeight
 
-        return HStack(alignment: .top, spacing: 10) {
-            VStack(spacing: 6) {
+        return HStack(alignment: .top, spacing: 8) {
+            VStack(spacing: HeroLayout.chipSpacing) {
                 heroChip(
                     text: "Score \(viewModel.state.score)",
                     style: .score,
@@ -294,10 +301,11 @@ struct GameView: View {
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
 
-            VStack(spacing: 2) {
+            VStack(spacing: HeroLayout.centerStackSpacing) {
                 Text(viewModel.state.formattedTargetChangeCountdown)
                     .font(.caption2.weight(.bold).monospacedDigit())
                     .foregroundStyle(Color.white.opacity(0.88))
+                    .lineLimit(1)
 
                 Text("TARGET")
                     .font(.caption.weight(.heavy))
@@ -319,13 +327,13 @@ struct GameView: View {
                                 ],
                                 center: .center
                             ),
-                            lineWidth: 6
+                            lineWidth: 5
                         )
-                        .frame(width: 102, height: 102)
-                        .shadow(color: NeonTheme.glowColor.opacity(0.3), radius: 8)
+                        .frame(width: HeroLayout.targetRingSize, height: HeroLayout.targetRingSize)
+                        .shadow(color: NeonTheme.glowColor.opacity(0.3), radius: 6)
 
                     Text("\(viewModel.state.targetNumber)")
-                        .font(.system(size: 44, weight: .heavy, design: .rounded))
+                        .font(.system(size: HeroLayout.targetFontSize, weight: .heavy, design: .rounded))
                         .foregroundStyle(Color.white)
                         .minimumScaleFactor(0.75)
                 }
@@ -338,7 +346,7 @@ struct GameView: View {
                 "Target \(viewModel.state.targetNumber), changes in \(viewModel.state.formattedTargetChangeCountdown)"
             )
 
-            VStack(spacing: 6) {
+            VStack(spacing: HeroLayout.chipSpacing) {
                 heroChip(
                     text: "Best \(viewModel.highScore)",
                     style: .best,
@@ -391,18 +399,6 @@ struct GameView: View {
             )
         }
         .accessibilityLabel(viewModel.state.isPaused ? "Resume game" : "Pause game")
-    }
-
-    private var helperHintOverlay: some View {
-        Text("Make horizontal or vertical sums to match the target.")
-            .font(.footnote)
-            .foregroundStyle(NeonTheme.textPrimary.opacity(0.82))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(NeonTheme.chipFill.opacity(0.96))
-            .clipShape(Capsule())
-            .opacity((!viewModel.state.hasPlayerMoved && !viewModel.state.isGameOver) ? 1 : 0)
-            .animation(.easeOut(duration: 0.2), value: viewModel.state.hasPlayerMoved)
     }
 
     private var controlsRow: some View {
