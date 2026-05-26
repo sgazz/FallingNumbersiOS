@@ -37,10 +37,6 @@ struct GameView: View {
     @State private var boardOffsetY: CGFloat = 0
     @State private var boardScale: CGFloat = 1.0
     @State private var transientBoardGlow: Double = 0
-#if DEBUG
-    @State private var controlsFrame: CGRect = .zero
-    @State private var boardFrame: CGRect = .zero
-#endif
 
     var body: some View {
         ZStack {
@@ -180,26 +176,11 @@ struct GameView: View {
                     }
                     .scaleEffect(boardScale)
                     .offset(y: boardOffsetY)
-                    .background(
-                        GeometryReader { geo in
-                            Color.clear
-                                .preference(key: BoardFramePreferenceKey.self, value: geo.frame(in: .global))
-                        }
-                    )
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .padding(.top, heroTopPadding)
                 .padding(.horizontal, sidePadding)
 
-#if DEBUG
-                if viewModel.diagnosticsEnabled {
-                    diagnosticsOverlay(
-                        screenHeight: proxy.size.height,
-                        boardHeight: boardHeight,
-                        topSpacing: heroTopPadding
-                    )
-                }
-#endif
             }
 
             if viewModel.state.isPaused, !viewModel.state.isGameOver {
@@ -215,14 +196,6 @@ struct GameView: View {
                     .transition(.opacity)
             }
         }
-        .onPreferenceChange(BoardFramePreferenceKey.self) { frame in
-#if DEBUG
-            boardFrame = frame
-            if viewModel.diagnosticsEnabled {
-                print("DEBUG board frame: x=\(Int(frame.minX)) y=\(Int(frame.minY)) w=\(Int(frame.width)) h=\(Int(frame.height))")
-            }
-#endif
-        }
         .safeAreaInset(edge: .bottom) {
             Group {
                 if voiceOverEnabled {
@@ -234,20 +207,6 @@ struct GameView: View {
                     Color.clear.frame(height: 1)
                 }
             }
-            .background(
-                GeometryReader { geo in
-                    Color.clear
-                        .preference(key: ControlsFramePreferenceKey.self, value: geo.frame(in: .global))
-                }
-            )
-        }
-        .onPreferenceChange(ControlsFramePreferenceKey.self) { frame in
-#if DEBUG
-            controlsFrame = frame
-            if viewModel.diagnosticsEnabled {
-                print("DEBUG controls frame: x=\(Int(frame.minX)) y=\(Int(frame.minY)) w=\(Int(frame.width)) h=\(Int(frame.height))")
-            }
-#endif
         }
         .animation(.easeInOut(duration: 0.32), value: viewModel.showsStartOverlay)
         .onChange(of: viewModel.state.score) { _, _ in
@@ -1013,29 +972,6 @@ struct GameView: View {
         .buttonStyle(ControlPadButtonStyle())
         .accessibilityLabel(accessibilityLabel)
     }
-
-#if DEBUG
-    private func diagnosticsOverlay(screenHeight: CGFloat, boardHeight: CGFloat, topSpacing: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("FPS: ~60")
-            Text(String(format: "Tick: %.2fs", viewModel.state.currentTickInterval))
-            Text("Tiles: \(viewModel.state.board.allOccupiedPositions().count + (viewModel.state.activePiece == nil ? 0 : 1))")
-            Text("Cascade depth: \(viewModel.state.cascadeCount)")
-            Text(String(format: "Screen H: %.0f", screenHeight))
-            Text(String(format: "Board H: %.0f", boardHeight))
-            Text(String(format: "Top Spacing: %.0f", topSpacing))
-            Text(String(format: "Controls Y: %.0f", controlsFrame.minY))
-            Text(String(format: "Board Top: %.0f", boardFrame.minY))
-        }
-        .font(.caption2.monospacedDigit())
-        .padding(8)
-                .background(NeonTheme.chipFill.opacity(0.94))
-        .foregroundStyle(NeonTheme.textPrimary)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(10)
-    }
-#endif
 }
 
 private struct ControlPadButtonStyle: ButtonStyle {
@@ -1047,20 +983,6 @@ private struct ControlPadButtonStyle: ButtonStyle {
                 radius: configuration.isPressed ? 6 : 0
             )
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
-    }
-}
-
-private struct ControlsFramePreferenceKey: PreferenceKey {
-    static var defaultValue: CGRect = .zero
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
-    }
-}
-
-private struct BoardFramePreferenceKey: PreferenceKey {
-    static var defaultValue: CGRect = .zero
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
     }
 }
 

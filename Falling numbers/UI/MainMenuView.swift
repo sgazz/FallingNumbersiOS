@@ -1,10 +1,17 @@
 import SwiftUI
 
 struct MainMenuView: View {
+    /// Current Gregorian calendar year when the modal is composed (shown on credits sheet).
+    private static var currentCalendarYearText: String {
+        let year = Calendar.current.component(.year, from: Date())
+        return "\(year)"
+    }
+
     @ObservedObject var viewModel: GameScreenViewModel
     var onPlay: (GameMode) -> Void
     @State private var isHowToPresented = false
     @State private var isSettingsPresented = false
+    @State private var isCreditsPresented = false
     @State private var drift = false
     @State private var selectedMode: GameMode = .beginner
 
@@ -82,6 +89,16 @@ struct MainMenuView: View {
                 .padding(.horizontal, 20)
 
                 Spacer()
+
+                Button {
+                    isCreditsPresented = true
+                } label: {
+                    menuBottomBrandMark
+                }
+                .buttonStyle(.plain)
+                .padding(.bottom, 10)
+                .accessibilityHint("Opens credits.")
+                .accessibilityLabel("Credits")
             }
             .padding(.vertical, 18)
         }
@@ -91,12 +108,61 @@ struct MainMenuView: View {
         .sheet(isPresented: $isSettingsPresented) {
             SettingsView(viewModel: viewModel)
         }
+        .sheet(isPresented: $isCreditsPresented) {
+            NavigationStack {
+                ZStack {
+                    NeonTheme.backgroundGradient
+                        .ignoresSafeArea()
+                    VStack(spacing: 12) {
+                        Text("Made by Stanko G.")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(NeonTheme.textPrimary)
+                            .multilineTextAlignment(.center)
+                        Text(Self.currentCalendarYearText)
+                            .font(.title2.weight(.bold).monospacedDigit())
+                            .foregroundStyle(NeonTheme.textSecondary)
+                    }
+                    .padding(28)
+                }
+                .toolbarBackground(.hidden, for: .navigationBar)
+                .toolbarColorScheme(.dark, for: .navigationBar)
+                .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        Text("About")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(NeonTheme.textPrimary)
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            isCreditsPresented = false
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(NeonTheme.textPrimary)
+                        .accessibilityLabel("Done")
+                    }
+                }
+            }
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
         .onAppear {
             selectedMode = viewModel.state.gameMode
             withAnimation(.easeInOut(duration: 6).repeatForever(autoreverses: true)) {
                 drift = true
             }
         }
+    }
+
+    /// Branded mark at bottom of intro screen only (`SGLogo` asset, template tinted white).
+    private var menuBottomBrandMark: some View {
+        Image("SGLogo")
+            .resizable()
+            .renderingMode(.template)
+            .scaledToFit()
+            .frame(maxWidth: 200, maxHeight: 52)
+            .foregroundStyle(Color.white.opacity(0.92))
+            .shadow(color: .black.opacity(0.35), radius: 3, y: 1)
+            .padding(.horizontal, 24)
     }
 
     private var modePicker: some View {

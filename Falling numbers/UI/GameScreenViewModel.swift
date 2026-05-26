@@ -20,9 +20,6 @@ final class GameScreenViewModel: ObservableObject {
     @Published private(set) var lastSumClearEvent: SumClearEvent?
     @Published private(set) var didSetNewBestInRun: Bool = false
     @Published private(set) var settings: AppSettings
-#if DEBUG
-    @Published var diagnosticsEnabled = false
-#endif
 
     private var engine: GameEngine
     private var timer: Timer?

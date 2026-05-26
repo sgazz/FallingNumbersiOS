@@ -80,15 +80,6 @@ struct SettingsView: View {
                             .buttonStyle(.plain)
                             .accessibilityLabel("Reset high score")
                         }
-
-#if DEBUG
-                        settingsCard(title: "Diagnostics") {
-                            Toggle("Show Debug Overlay", isOn: $viewModel.diagnosticsEnabled)
-                                .tint(NeonTheme.accentSecondary)
-                                .foregroundStyle(NeonTheme.textPrimary)
-                                .accessibilityLabel("Show debug overlay")
-                        }
-#endif
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
