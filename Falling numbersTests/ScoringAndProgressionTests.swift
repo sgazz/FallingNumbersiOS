@@ -52,7 +52,31 @@ struct ScoringAndProgressionTests {
         #expect(levelSystem.level(forScore: levelTwoThreshold) == 2)
         #expect(levelSystem.progressToNextLevel(score: levelTwoThreshold) == 0)
         #expect(levelSystem.progressToNextLevel(score: levelThreeThreshold - 1) < 1)
-        #expect(levelSystem.progressToNextLevel(score: levelThreeThreshold + 500) == 1)
+        let levelFourThreshold = levelSystem.levelThreshold(4)
+        let midpoint = levelThreeThreshold + (levelFourThreshold - levelThreeThreshold) / 2
+        #expect(abs(levelSystem.progressToNextLevel(score: midpoint) - 0.5) < 0.002)
+        #expect(levelSystem.progressToNextLevel(score: levelFourThreshold) == 0)
+    }
+
+    @Test(arguments: [GameMode.beginner, GameMode.expert])
+    func reorderBonusImmediatelyUpdatesLevelAndSpeed(mode: GameMode) {
+        let config = GameConfig(columns: 7, rows: 8, tickInterval: 0.65, baseTargetNumber: 10)
+        let levels = LevelSystem()
+        var state = GameState.initial(config: config, mode: mode)
+        state.score = levels.levelThreshold(7) - 50
+        for column in 0..<5 {
+            state.board.setCell(Cell(value: column + 1), at: GridPosition(row: 7, column: column))
+        }
+        state.activePiece = FallingPiece(kind: .reorder, position: GridPosition(row: 0, column: 5))
+        var engine = GameEngine(state: state, config: config)
+        let oldSpeed = engine.state.currentTickInterval
+
+        engine.send(.hardDrop)
+
+        #expect(engine.state.level == 7)
+        #expect(engine.state.level == levels.level(forScore: engine.state.score))
+        #expect(engine.state.didLevelChange)
+        #expect(engine.state.currentTickInterval < oldSpeed)
     }
 
     @Test

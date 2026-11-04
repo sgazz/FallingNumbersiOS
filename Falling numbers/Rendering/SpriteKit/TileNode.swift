@@ -15,8 +15,9 @@ final class TileNode: SKNode {
     private var cachedKind: TileKind?
     private var cachedSize: CGFloat = 0
     private var cachedIsActive: Bool = false
+    private var cachedReduceMotion = false
 
-    init(kind: TileKind, size: CGFloat, isActive: Bool) {
+    init(kind: TileKind, size: CGFloat, isActive: Bool, reduceMotion: Bool = false) {
         super.init()
 
         addChild(shadowNode)
@@ -34,20 +35,21 @@ final class TileNode: SKNode {
         labelNode.fontColor = UIColor(red: 0.99, green: 0.99, blue: 1.0, alpha: 0.98)
         labelNode.zPosition = 2
 
-        update(kind: kind, size: size, isActive: isActive)
+        update(kind: kind, size: size, isActive: isActive, reduceMotion: reduceMotion)
     }
 
     required init?(coder aDecoder: NSCoder) {
         nil
     }
 
-    func update(kind: TileKind, size: CGFloat, isActive: Bool) {
+    func update(kind: TileKind, size: CGFloat, isActive: Bool, reduceMotion: Bool = false) {
         let valueChanged = cachedKind != kind
         let sizeChanged = abs(cachedSize - size) > 0.001
         let activeChanged = cachedIsActive != isActive
 
-        guard valueChanged || sizeChanged || activeChanged else { return }
+        guard valueChanged || sizeChanged || activeChanged || cachedReduceMotion != reduceMotion else { return }
 
+        cachedReduceMotion = reduceMotion
         cachedKind = kind
         cachedSize = size
         cachedIsActive = isActive
@@ -71,7 +73,11 @@ final class TileNode: SKNode {
         shapeNode.lineWidth = max(1.2, size * 0.036)
         shapeNode.glowWidth = 0
 
-        if activeChanged {
+        if reduceMotion {
+            removeAction(forKey: "activeScale")
+            setScale(1)
+            shapeNode.alpha = isActive ? 1.0 : 0.94
+        } else if activeChanged {
             removeAction(forKey: "activeScale")
             if isActive {
                 shapeNode.alpha = 1.0

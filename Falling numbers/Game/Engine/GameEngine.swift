@@ -317,6 +317,7 @@ struct GameEngine {
             resolveBoard(preferredOrigin: nil)
         case .reorder:
             PowerUpSystem.activateReorder(state: &state, at: lockedPosition)
+            updateProgressionState()
         }
     }
 

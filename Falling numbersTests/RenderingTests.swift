@@ -107,4 +107,56 @@ struct RenderingTests {
         #expect(background.strokeColor.cgColor.alpha == 0)
     }
 
+    @Test
+    func reduceMotionStopsExistingEffectsAndSnapsTiles() throws {
+        let config = GameConfig(columns: 4, rows: 6, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        let moving = Cell(value: 3)
+        let clearing = Cell(value: 5)
+        state.board.setCell(moving, at: GridPosition(row: 2, column: 1))
+        state.board.setCell(clearing, at: GridPosition(row: 5, column: 2))
+        let board = BoardNode()
+        let size = CGSize(width: 200, height: 300)
+        board.render(state: state, sceneSize: size)
+        state.board.setCell(nil, at: GridPosition(row: 5, column: 2))
+        board.render(state: state, sceneSize: size)
+        #expect(board.childNode(withName: "clearing_snapshot") != nil)
+        board.playReorderHint()
+        state.board.setCell(nil, at: GridPosition(row: 2, column: 1))
+        state.board.setCell(moving, at: GridPosition(row: 5, column: 1))
+
+        board.render(state: state, sceneSize: size, reduceMotion: true)
+
+        let tile = try #require(board.childNode(withName: moving.id.uuidString))
+        #expect(tile.position == CGPoint(x: -25, y: -125))
+        #expect(!tile.hasActions())
+        #expect(tile.xScale == 1 && tile.yScale == 1 && tile.zRotation == 0)
+        #expect(board.childNode(withName: "clearing_snapshot") == nil)
+        state.board.setCell(nil, at: GridPosition(row: 5, column: 1))
+        board.render(state: state, sceneSize: size, reduceMotion: true)
+        #expect(board.children.compactMap { $0 as? TileNode }.isEmpty)
+    }
+
+    @Test
+    func scenePassesReduceMotionToNewAndLockingTiles() throws {
+        let scene = GameScene(size: CGSize(width: 200, height: 300))
+        let view = SKView(frame: CGRect(x: 0, y: 0, width: 200, height: 300))
+        view.presentScene(scene)
+        let config = GameConfig(columns: 4, rows: 6, tickInterval: 0.65, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        let piece = FallingPiece(value: 3, position: GridPosition(row: 5, column: 1))
+        state.activePiece = piece
+        scene.render(state: state, reduceMotion: true)
+        let board = try #require(scene.children.compactMap { $0 as? BoardNode }.first)
+        let tile = try #require(board.childNode(withName: piece.id.uuidString))
+        #expect(!tile.hasActions())
+        #expect(tile.alpha == 1 && tile.xScale == 1)
+
+        state.activePiece = nil
+        state.board.setCell(Cell(kind: piece.kind, id: piece.id), at: piece.position)
+        scene.render(state: state, reduceMotion: true)
+        #expect(!tile.hasActions())
+        #expect(tile.xScale == 1)
+    }
+
 }

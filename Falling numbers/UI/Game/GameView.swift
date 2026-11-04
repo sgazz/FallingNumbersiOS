@@ -14,7 +14,7 @@ struct GameView: View {
     @State private var cascadeBannerText: String?
     @State private var targetChangeBannerText: String?
     @State private var powerUpBannerText: String?
-    /// Beginner-only: friendly “how the sum works” banner above the lower board edge.
+    /// Beginner-only: friendly “how the sum works” banner over the score, target, and next-piece HUD.
     private struct SumLearnBanner: Equatable {
         let mainLine: String
         let subLine: String
@@ -23,7 +23,6 @@ struct GameView: View {
 
     @State private var sumBannerTask: Task<Void, Never>?
     @State private var sumLearnBanner: SumLearnBanner?
-    @State private var sumBannerBottomOffset: CGFloat = 12
     @State private var boardOffsetY: CGFloat = 0
     @State private var boardScale: CGFloat = 1.0
     @State private var transientBoardGlow: Double = 0
@@ -43,7 +42,7 @@ struct GameView: View {
         let occupied = viewModel.state.board.allOccupiedPositions().count
         let capacity = max(1, viewModel.state.board.rows * viewModel.state.board.columns)
         let active = viewModel.state.activePiece?.kind.displayText ?? "none"
-        return "Board, (occupied) of (capacity) cells occupied. Target (viewModel.state.targetNumber). Active piece (active)."
+        return "Board, \(occupied) of \(capacity) cells occupied. Target \(viewModel.state.targetNumber). Active piece \(active)."
     }
 
     var body: some View {
@@ -74,6 +73,37 @@ struct GameView: View {
                                 cascadePulse: cascadePulse, targetPulse: targetPulse)
                         .frame(width: hudWidth, height: heroHeight, alignment: .top)
                         .padding(.horizontal, contentPadding)
+                        .overlay(alignment: .center) {
+                            if let sumLearnBanner {
+                                VStack(spacing: 4) {
+                                    Text(sumLearnBanner.mainLine)
+                                        .font(.title3.weight(.heavy))
+                                        .foregroundStyle(ArcadeTheme.textPrimary)
+                                        .multilineTextAlignment(.center)
+                                        .minimumScaleFactor(0.5)
+                                        .lineLimit(1)
+                                    Text(sumLearnBanner.subLine)
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(ArcadeTheme.textSecondary)
+                                        .multilineTextAlignment(.center)
+                                        .lineLimit(2)
+                                        .minimumScaleFactor(0.8)
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(ArcadeTheme.chipFill.opacity(0.97))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(ArcadeTheme.chipStroke, lineWidth: 1)
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 14))
+                                .accessibilityElement(children: .combine)
+                                .accessibilityLabel(sumLearnBanner.accessibilitySummary)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                                .allowsHitTesting(false)
+                            }
+                        }
 
                     if !isWide { Color.clear.frame(height: boardTopGap) }
 
@@ -153,37 +183,6 @@ struct GameView: View {
                                     )
                                     .clipShape(Capsule())
                                     .transition(.opacity.combined(with: .scale(scale: 0.93)))
-                            }
-                        }
-                        .overlay(alignment: .bottom) {
-                            if let sumLearnBanner {
-                                VStack(spacing: 6) {
-                                    Text(sumLearnBanner.mainLine)
-                                        .font(.title3.weight(.heavy))
-                                        .foregroundStyle(ArcadeTheme.textPrimary)
-                                        .multilineTextAlignment(.center)
-                                        .minimumScaleFactor(0.68)
-                                        .lineLimit(2)
-                                    Text(sumLearnBanner.subLine)
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(ArcadeTheme.textSecondary)
-                                        .multilineTextAlignment(.center)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 12)
-                                .frame(maxWidth: .infinity)
-                                .background(ArcadeTheme.chipFill.opacity(0.97))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 14)
-                                        .stroke(ArcadeTheme.chipStroke, lineWidth: 1)
-                                )
-                                .clipShape(RoundedRectangle(cornerRadius: 14))
-                                .padding(.horizontal, 6)
-                                .padding(.bottom, sumBannerBottomOffset)
-                                .accessibilityElement(children: .combine)
-                                .accessibilityLabel(sumLearnBanner.accessibilitySummary)
-                                .transition(.move(edge: .bottom).combined(with: .opacity))
                             }
                         }
                         .scaleEffect(boardScale)
@@ -316,6 +315,7 @@ struct GameView: View {
     }
 
     private func hardDropFeedback() {
+        guard !reduceMotion else { return }
         withAnimation(.easeOut(duration: 0.05)) {
             boardOffsetY = 4
             boardScale = 0.992
@@ -381,15 +381,12 @@ struct GameView: View {
         let accessibilitySummary =
             "\(spokenSum), equals \(targetSpoken), your target. \(directionSpoken).\(chainSpoken)"
 
-        sumLearnBanner = SumLearnBanner(
-            mainLine: mainLine,
-            subLine: subLine,
-            accessibilitySummary: accessibilitySummary
-        )
-        sumBannerBottomOffset = 4
-
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
-            sumBannerBottomOffset = 14
+        withAnimation(.easeOut(duration: 0.18)) {
+            sumLearnBanner = SumLearnBanner(
+                mainLine: mainLine,
+                subLine: subLine,
+                accessibilitySummary: accessibilitySummary
+            )
         }
         sumBannerTask?.cancel()
         sumBannerTask = Task { @MainActor in
@@ -401,7 +398,6 @@ struct GameView: View {
             guard !Task.isCancelled else { return }
             withAnimation(.easeIn(duration: 0.22)) {
                 sumLearnBanner = nil
-                sumBannerBottomOffset = 12
             }
         }
     }

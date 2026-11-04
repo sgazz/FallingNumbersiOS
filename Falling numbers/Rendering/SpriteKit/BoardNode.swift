@@ -32,7 +32,7 @@ final class BoardNode: SKNode {
         nil
     }
 
-    func render(state: GameState, sceneSize: CGSize) {
+    func render(state: GameState, sceneSize: CGSize, reduceMotion: Bool = false) {
         guard state.board.columns > 0 && state.board.rows > 0 else { return }
 
         if lastRunID != state.runID {
@@ -62,9 +62,24 @@ final class BoardNode: SKNode {
             lastGeometryKey = geometryKey
         }
 
+        if reduceMotion {
+            // Also stop effects already running when the preference changes.
+            for node in children where node !== boardBackgroundNode && node !== gridNode {
+                if let tile = node as? TileNode, tileNodes.values.contains(where: { $0 === tile }) {
+                    tile.removeAllActions()
+                    tile.setScale(1)
+                    tile.zRotation = 0
+                    tile.alpha = 1
+                } else {
+                    node.removeAllActions()
+                    node.removeFromParent()
+                }
+            }
+        }
+
         let powerUpChanged = state.powerUpEventToken != lastPowerUpEventToken
         lastPowerUpEventToken = state.powerUpEventToken
-        if powerUpChanged, let activation = state.lastPowerUpActivation {
+        if !reduceMotion, powerUpChanged, let activation = state.lastPowerUpActivation {
             switch activation.type {
             case .rowClear:
                 if let row = activation.row { playRowClearSweep(row: row) }
@@ -89,6 +104,11 @@ final class BoardNode: SKNode {
 
         for (id, node) in tileNodes where tiles[id] == nil {
             tileNodes.removeValue(forKey: id)
+            if reduceMotion {
+                node.removeAllActions()
+                node.removeFromParent()
+                continue
+            }
             // Safer clear strategy:
             // remove node from live board map immediately and animate it as independent snapshot.
             node.removeAllActions()
@@ -120,8 +140,10 @@ final class BoardNode: SKNode {
             let point = pointFor(position: position)
             if let node = tileNodes[id] {
                 let wasActive = previousActiveID == id
-                node.update(kind: kind, size: cellSize * 0.92, isActive: isActive)
-                if node.position != point {
+                node.update(kind: kind, size: cellSize * 0.92, isActive: isActive, reduceMotion: reduceMotion)
+                if reduceMotion {
+                    node.position = point
+                } else if node.position != point {
                     node.removeAction(forKey: "move")
                     let distanceCells = max(1, Int(ceil(hypot(node.position.x - point.x, node.position.y - point.y) / max(1, cellSize))))
                     let duration: TimeInterval
@@ -138,7 +160,7 @@ final class BoardNode: SKNode {
                         node.run(moveAction, withKey: "move")
                     }
                 }
-                if wasActive, !isActive {
+                if !reduceMotion, wasActive, !isActive {
                     // Lock feedback: tiny settle animation, no board shake.
                     node.run(SKAction.sequence([
                         SKAction.scale(to: 0.97, duration: 0.05),
@@ -147,20 +169,22 @@ final class BoardNode: SKNode {
                     ]))
                 }
             } else {
-                let node = TileNode(kind: kind, size: cellSize * 0.92, isActive: isActive)
+                let node = TileNode(kind: kind, size: cellSize * 0.92, isActive: isActive, reduceMotion: reduceMotion)
                 node.name = id.uuidString
                 node.position = point
-                node.alpha = 0
-                node.setScale(0.82)
+                node.alpha = reduceMotion ? 1 : 0
+                node.setScale(reduceMotion ? 1 : 0.82)
                 addChild(node)
                 tileNodes[id] = node
                 node.removeAction(forKey: "move")
-                node.run(
-                    SKAction.group([
-                        SKAction.fadeIn(withDuration: 0.09),
-                        SKAction.scale(to: isActive ? 1.03 : 1.0, duration: 0.09)
-                    ])
-                )
+                if !reduceMotion {
+                    node.run(
+                        SKAction.group([
+                            SKAction.fadeIn(withDuration: 0.09),
+                            SKAction.scale(to: isActive ? 1.03 : 1.0, duration: 0.09)
+                        ])
+                    )
+                }
             }
         }
 

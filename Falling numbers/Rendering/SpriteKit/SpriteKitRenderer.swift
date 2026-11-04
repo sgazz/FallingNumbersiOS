@@ -3,6 +3,7 @@ import SpriteKit
 
 struct SpriteKitRenderer: UIViewRepresentable {
     @Binding var state: GameState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeUIView(context: Context) -> SKView {
         let view = SKView()
@@ -14,7 +15,7 @@ struct SpriteKitRenderer: UIViewRepresentable {
         view.presentScene(scene)
 
         context.coordinator.scene = scene
-        scene.render(state: state)
+        scene.render(state: state, reduceMotion: reduceMotion)
 
         return view
     }
@@ -22,10 +23,10 @@ struct SpriteKitRenderer: UIViewRepresentable {
     func updateUIView(_ uiView: SKView, context: Context) {
         // Rendering boundary: SpriteKit only mirrors immutable engine state.
         // It never mutates gameplay logic and skips redundant redraws by signature.
-        let signature = context.coordinator.makeSignature(for: state)
+        let signature = context.coordinator.makeSignature(for: state) + "|rm:\(reduceMotion)"
         guard signature != context.coordinator.lastSignature else { return }
         context.coordinator.lastSignature = signature
-        context.coordinator.scene?.render(state: state)
+        context.coordinator.scene?.render(state: state, reduceMotion: reduceMotion)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -59,6 +60,7 @@ struct SpriteKitRenderer: UIViewRepresentable {
 final class GameScene: SKScene {
     private var boardNode: BoardNode?
     private var latestState: GameState?
+    private var reduceMotion = false
 
     override func didMove(to view: SKView) {
         backgroundColor = .clear
@@ -77,7 +79,8 @@ final class GameScene: SKScene {
         refreshBoardGeometry()
     }
 
-    func render(state: GameState) {
+    func render(state: GameState, reduceMotion: Bool = false) {
+        self.reduceMotion = reduceMotion
         latestState = state
         refreshBoardGeometry()
     }
@@ -85,7 +88,7 @@ final class GameScene: SKScene {
     private func refreshBoardGeometry() {
         boardNode?.position = CGPoint(x: size.width * 0.5, y: size.height * 0.5)
         if let latestState {
-            boardNode?.render(state: latestState, sceneSize: size)
+            boardNode?.render(state: latestState, sceneSize: size, reduceMotion: reduceMotion)
         }
     }
 }
