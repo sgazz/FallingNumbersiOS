@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HowToPlayView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var animateHorizontal = false
     @State private var animateVertical = false
 
@@ -28,7 +29,7 @@ struct HowToPlayView: View {
                                 numberChip(5)
                             }
                             .scaleEffect(animateHorizontal ? 1.03 : 1.0)
-                            .animation(.easeInOut(duration: 0.6).delay(0.55), value: animateHorizontal)
+                            .animation(reduceMotion ? nil : .easeInOut(duration: 0.6).delay(0.55), value: animateHorizontal)
 
                             equation("3 + 4 + 5 = 12")
 
@@ -46,7 +47,7 @@ struct HowToPlayView: View {
                                 numberChip(3)
                             }
                             .scaleEffect(animateVertical ? 1.03 : 1.0)
-                            .animation(.easeInOut(duration: 0.6).delay(0.55), value: animateVertical)
+                            .animation(reduceMotion ? nil : .easeInOut(duration: 0.6).delay(0.55), value: animateVertical)
 
                             equation("5 + 2 + 3 = 10")
 
@@ -57,8 +58,18 @@ struct HowToPlayView: View {
                         }
 
                         infoCard(title: "Game Modes") {
-                            bullet("Beginner: a 7-column, 15-row board with gradual difficulty and automatic chain reactions.")
-                            bullet("Expert: a 10-column, 20-row board with faster falling, targets from 5 to 20, and one clear pass per tile.")
+                            modeSummary(
+                                title: "Beginner",
+                                detail: "7 × 15 board • gradual difficulty • automatic chain reactions",
+                                icon: "leaf.fill",
+                                color: ArcadeTheme.accentPrimary
+                            )
+                            modeSummary(
+                                title: "Expert",
+                                detail: "10 × 20 board • faster falling • targets from 5 to 20",
+                                icon: "bolt.fill",
+                                color: ArcadeTheme.accentSecondary
+                            )
                             bullet("Make straight, connected lines of at least two numbers. Diagonal and L-shaped groups do not count.")
                         }
 
@@ -70,11 +81,11 @@ struct HowToPlayView: View {
                         }
 
                         infoCard(title: "Special Gameplay") {
+                            specialTileRow(symbol: "↔", title: "Row Clear", detail: "Removes the landing row.", color: ArcadeTheme.accentPrimary)
+                            specialTileRow(symbol: "↕", title: "Column Clear", detail: "Removes the landing column.", color: ArcadeTheme.accentSecondary)
+                            specialTileRow(symbol: "⟳", title: "Reorder", detail: "Sorts occupied numbers from the bottom.", color: ArcadeTheme.ink)
                             bullet("Beginner cascades: Chain reactions give bonus points!")
                             bullet("Perfect Clear: Clear the whole board for a big reward!")
-                            bullet("↔ Row Clear removes its landing row.")
-                            bullet("↕ Column Clear removes its landing column.")
-                            bullet("⟳ Reorder sorts the numbers across occupied cells, starting at the bottom. It does not trigger automatic clears.")
                             bullet("Special tiles appear from level 6 in Beginner and level 3 in Expert.")
                         }
                     }
@@ -100,6 +111,7 @@ struct HowToPlayView: View {
             }
         }
         .onAppear {
+            guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
                 animateHorizontal.toggle()
                 animateVertical.toggle()
@@ -193,6 +205,45 @@ struct HowToPlayView: View {
                 .foregroundStyle(ArcadeTheme.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
+        }
+    }
+
+    private func modeSummary(title: String, detail: String, icon: String, color: Color) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(color)
+                .frame(width: 30, height: 30)
+                .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(ArcadeTheme.textPrimary)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(ArcadeTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func specialTileRow(symbol: String, title: String, detail: String, color: Color) -> some View {
+        HStack(spacing: 10) {
+            Text(symbol)
+                .font(.system(size: 20, weight: .heavy, design: .rounded))
+                .foregroundStyle(.white)
+                .frame(width: 34, height: 34)
+                .background(color, in: RoundedRectangle(cornerRadius: 10))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(ArcadeTheme.textPrimary)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(ArcadeTheme.textSecondary)
+            }
+            Spacer(minLength: 0)
         }
     }
 

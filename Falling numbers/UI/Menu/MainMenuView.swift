@@ -7,6 +7,9 @@ struct MainMenuView: View {
     @State private var isHowToPresented = false
     @State private var isSettingsPresented = false
     @State private var isCreditsPresented = false
+    @AppStorage("falling_numbers_onboarding_completed") private var onboardingCompleted = false
+    @State private var isOnboardingPresented = false
+    @State private var pendingMode: GameMode = .beginner
 
     var body: some View {
         ZStack {
@@ -65,7 +68,7 @@ struct MainMenuView: View {
                             modeCard(.beginner, symbol: "leaf", subtitle: "Room to learn")
                             modeCard(.expert, symbol: "bolt", subtitle: "Think on your feet")
                         }
-                        Button { onPlay(selectedMode) } label: {
+                        Button { beginPlay(selectedMode, onPlay: onPlay) } label: {
                             HStack {
                                 Spacer()
                                 Text("Let's play")
@@ -110,6 +113,17 @@ struct MainMenuView: View {
         .foregroundStyle(ArcadeTheme.textPrimary)
         .buttonStyle(.plain)
         .sheet(isPresented: $isHowToPresented) { HowToPlayView() }
+        .sheet(isPresented: $isOnboardingPresented) {
+            FirstRunOnboardingView(mode: pendingMode) {
+                onboardingCompleted = true
+                isOnboardingPresented = false
+                onPlay(pendingMode)
+            } onSkip: {
+                onboardingCompleted = true
+                isOnboardingPresented = false
+                onPlay(pendingMode)
+            }
+        }
         .sheet(isPresented: $isSettingsPresented) { SettingsView(viewModel: viewModel) }
         .sheet(isPresented: $isCreditsPresented) {
             NavigationStack {
@@ -135,6 +149,15 @@ struct MainMenuView: View {
             .presentationDetents([.medium])
         }
         .onAppear { selectedMode = viewModel.state.gameMode }
+    }
+
+    private func beginPlay(_ mode: GameMode, onPlay: @escaping (GameMode) -> Void) {
+        pendingMode = mode
+        if mode == .beginner, !onboardingCompleted {
+            isOnboardingPresented = true
+        } else {
+            onPlay(mode)
+        }
     }
 
     private func menuTile(_ number: Int, rotation: Double) -> some View {
@@ -172,5 +195,72 @@ struct MainMenuView: View {
         }
         .accessibilityLabel(mode.title)
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+struct FirstRunOnboardingView: View {
+    let mode: GameMode
+    let onStart: () -> Void
+    let onSkip: () -> Void
+    @State private var step = 0
+
+    private let steps: [(title: String, text: String, icon: String)] = [
+        ("Match the target", "Move falling numbers into a straight line whose sum equals the target.", "target"),
+        ("Move with simple gestures", "Swipe left or right to move. Swipe down to drop faster, or double-tap for a hard drop.", "hand.draw"),
+        ("Build a chain", "Cleared lines create space and can trigger beginner cascades for bonus points.", "sparkles")
+    ]
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 22) {
+                Spacer(minLength: 8)
+                Image(systemName: steps[step].icon)
+                    .font(.system(size: 46, weight: .bold))
+                    .foregroundStyle(ArcadeTheme.accentPrimary)
+                    .frame(width: 92, height: 92)
+                    .background(ArcadeTheme.accentPrimary.opacity(0.12), in: Circle())
+                Text(steps[step].title)
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(ArcadeTheme.textPrimary)
+                Text(steps[step].text)
+                    .font(.body)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(ArcadeTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 16)
+                HStack(spacing: 7) {
+                    ForEach(steps.indices, id: \.self) { index in
+                        Capsule()
+                            .fill(index == step ? ArcadeTheme.accentPrimary : ArcadeTheme.chipStroke)
+                            .frame(width: index == step ? 24 : 8, height: 8)
+                    }
+                }
+                Spacer()
+                Button(step == steps.count - 1 ? "Start game" : "Next", action: advance)
+                    .buttonStyle(.borderedProminent)
+                    .tint(ArcadeTheme.controlsTint)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityLabel(step == steps.count - 1 ? "Start game" : "Next onboarding step")
+                Button("Skip", action: onSkip)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(ArcadeTheme.textSecondary)
+            }
+            .padding(24)
+            .frame(maxWidth: 420)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(ArcadeTheme.backgroundGradient.ignoresSafeArea())
+            .navigationTitle("Quick start")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func advance() {
+        if step < steps.count - 1 {
+            withAnimation(.easeInOut(duration: 0.2)) { step += 1 }
+        } else {
+            onStart()
+        }
     }
 }

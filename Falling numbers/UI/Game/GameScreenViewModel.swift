@@ -13,6 +13,7 @@ final class GameScreenViewModel: ObservableObject {
     @Published private(set) var boardShakeToken: Int = 0
     @Published private(set) var comboPulseToken: Int = 0
     @Published private(set) var targetPulseToken: Int = 0
+    @Published private(set) var targetChangeToken: Int = 0
     @Published private(set) var perfectClearToken: Int = 0
     @Published private(set) var powerUpPulseToken: Int = 0
     @Published private(set) var lastPowerUpLabel: String?
@@ -39,6 +40,10 @@ final class GameScreenViewModel: ObservableObject {
     var targetTimerProgress: Double {
         guard engine.config.targetChangeInterval > 0 else { return 0 }
         return min(1, max(0, state.targetTimerRemaining / engine.config.targetChangeInterval))
+    }
+
+    var levelProgress: Double {
+        LevelSystem().progressToNextLevel(score: state.score)
     }
 
     var showsCascadeHUD: Bool {
@@ -269,6 +274,9 @@ final class GameScreenViewModel: ObservableObject {
                     if settings.isSoundEnabled { audio.trigger(.clear) }
                 }
                 targetPulseToken &+= 1
+            }
+            if state.didTargetChange {
+                targetChangeToken &+= 1
             }
             if !previous.isGameOver, state.isGameOver {
                 if settings.isHapticsEnabled { haptics.gameOver() }

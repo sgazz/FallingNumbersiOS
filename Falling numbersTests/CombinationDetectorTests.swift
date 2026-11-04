@@ -71,6 +71,22 @@ struct CombinationDetectorTests {
     }
 
     @Test
+    func emptyBoardAndNonPositiveTargetsHaveNoMatches() {
+        let detector = CombinationDetector()
+        let empty = Board(rows: 3, columns: 3)
+        #expect(detector.findMatchingGroups(on: empty, target: 10).isEmpty)
+        #expect(detector.findMatchingGroups(on: empty, target: 0).isEmpty)
+        #expect(detector.findMatchingGroups(on: empty, target: -1).isEmpty)
+    }
+
+    @Test
+    func aSingleTileNeverFormsAMatch() {
+        var board = Board(rows: 1, columns: 1)
+        board.setCell(Cell(value: 10), at: GridPosition(row: 0, column: 0))
+        #expect(CombinationDetector().findMatchingGroups(on: board, target: 10).isEmpty)
+    }
+
+    @Test
     func deterministicTieUsesHorizontalBeforeVertical() {
         let config = GameConfig(columns: 4, rows: 4, tickInterval: 0.65, baseTargetNumber: 10)
         var state = GameState.initial(config: config)

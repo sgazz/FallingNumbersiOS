@@ -6,6 +6,7 @@ struct GameOverlays: View {
     var kind: Kind
     var onMainMenu: (() -> Void)?
     var onSettings: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { geometry in
@@ -23,6 +24,11 @@ struct GameOverlays: View {
                     .padding(.vertical, 16)
                 }
                 .scrollBounceBehavior(.basedOnSize)
+            }
+        }
+        .transaction { transaction in
+            if reduceMotion {
+                transaction.animation = nil
             }
         }
     }
@@ -197,6 +203,7 @@ struct GameOverlays: View {
                     recapRow(title: "Highest Cascade", value: "×\(max(1, viewModel.state.highestCascade))")
                 }
                 recapRow(title: "Longest Line", value: "\(viewModel.state.longestLineCleared)")
+                recapRow(title: "Game Over Reason", value: gameOverReasonLabel)
             }
             .padding(10)
             .background(ArcadeTheme.chipFill)
@@ -256,6 +263,14 @@ struct GameOverlays: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title) \(value)")
+    }
+
+    private var gameOverReasonLabel: String {
+        switch viewModel.state.telemetry.gameOverReason {
+        case .columnFilledToTop: return "Board reached the top"
+        case .spawnBlocked: return "No space to spawn"
+        case .unknown, .none: return "Unknown"
+        }
     }
 
 }

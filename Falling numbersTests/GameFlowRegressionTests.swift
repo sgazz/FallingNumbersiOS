@@ -84,4 +84,37 @@ struct GameFlowRegressionTests {
         engine.send(.advanceTime(0.35))
         #expect(engine.state.activePiece?.position.row == 1)
     }
+
+    @Test
+    func telemetryTracksDurationOccupancyAndNearDeathTransitions() {
+        let config = GameConfig(columns: 2, rows: 4, tickInterval: 0.5, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board.setCell(Cell(value: 4), at: GridPosition(row: 0, column: 0))
+        BalanceTelemetrySystem.recordActiveGameplayTime(state: &state, elapsed: 2.0)
+
+        #expect(state.telemetry.activeGameplaySeconds == 2.0)
+        #expect(state.telemetry.timeSpentPerLevel[1] == 2.0)
+        #expect(state.telemetry.nearDeathEvents == 1)
+        #expect(state.telemetry.topRowsTouchedCount == 1)
+        #expect(state.telemetry.averageOccupancyLast60s > 0)
+
+        BalanceTelemetrySystem.recordActiveGameplayTime(state: &state, elapsed: 1.0)
+        #expect(state.telemetry.nearDeathEvents == 1)
+        #expect(state.telemetry.topRowsTouchedCount == 1)
+    }
+
+    @Test
+    func levelProgressReflectsScoreBetweenThresholds() {
+        let config = GameConfig(columns: 4, rows: 8, tickInterval: 0.5, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.score = 200
+        let model = GameScreenViewModel(
+            engine: GameEngine(state: state, config: config),
+            highScoreStore: TestHighScoreStore(initial: 0),
+            settingsStore: TestSettingsStore(initial: .default),
+            haptics: NoopHapticsClient(), audio: NoopAudioClient()
+        )
+        #expect(model.levelProgress > 0)
+        #expect(model.levelProgress < 1)
+    }
 }

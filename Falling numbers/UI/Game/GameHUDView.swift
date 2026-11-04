@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum GameHUDMetrics {
-    static let height: CGFloat = 84
+    static let height: CGFloat = 92
 }
 
 struct GameHUDView: View {
@@ -9,6 +9,10 @@ struct GameHUDView: View {
     var scorePulse: Bool
     var cascadePulse: Bool
     var targetPulse: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .title3) private var scoreFontSize: CGFloat = 25
+    @ScaledMetric(relativeTo: .title3) private var targetFontSize: CGFloat = 25
+    @ScaledMetric(relativeTo: .title3) private var nextFontSize: CGFloat = 24
 
     var body: some View {
         VStack(spacing: 6) {
@@ -18,7 +22,7 @@ struct GameHUDView: View {
                 Spacer(minLength: 4)
                 if viewModel.showsCascadeHUD {
                     Text("Cascade ×\(max(1, viewModel.state.cascadeCount))")
-                        .scaleEffect(cascadePulse ? 1.04 : 1)
+                        .scaleEffect(!reduceMotion && cascadePulse ? 1.04 : 1)
                         .accessibilityLabel("Cascade \(max(1, viewModel.state.cascadeCount))")
                 } else {
                     Text("Time \(viewModel.state.formattedActivePlayTime)")
@@ -31,15 +35,36 @@ struct GameHUDView: View {
             .lineLimit(1)
             .minimumScaleFactor(0.7)
 
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    caption("NEXT LEVEL")
+                    Spacer(minLength: 4)
+                    Text("\(Int((viewModel.levelProgress * 100).rounded()))%")
+                        .font(.system(size: 7, weight: .bold, design: .rounded).monospacedDigit())
+                        .foregroundStyle(ArcadeTheme.textSecondary)
+                }
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(ArcadeTheme.ink.opacity(0.08))
+                        Capsule()
+                            .fill(ArcadeTheme.accentPrimary)
+                            .frame(width: proxy.size.width * viewModel.levelProgress)
+                    }
+                }
+                .frame(height: 4)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Level progress \(Int((viewModel.levelProgress * 100).rounded())) percent")
+            }
+
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 1) {
                     caption("SCORE")
                     Text("\(viewModel.state.score)")
-                        .font(.system(size: 25, weight: .heavy, design: .rounded).monospacedDigit())
+                        .font(.system(size: scoreFontSize, weight: .heavy, design: .rounded).monospacedDigit())
                         .lineLimit(1)
                         .minimumScaleFactor(0.45)
                         .contentTransition(.numericText())
-                        .scaleEffect(scorePulse ? 1.03 : 1)
+                        .scaleEffect(!reduceMotion && scorePulse ? 1.03 : 1)
                         .accessibilityLabel("Score \(viewModel.state.score)")
                     Text("Best \(viewModel.highScore)")
                         .font(.system(size: 10, weight: .medium, design: .rounded))
@@ -59,7 +84,7 @@ struct GameHUDView: View {
                     VStack(spacing: 0) {
                         caption("TARGET")
                         Text("\(viewModel.state.targetNumber)")
-                            .font(.system(size: 25, weight: .heavy, design: .rounded))
+                            .font(.system(size: targetFontSize, weight: .heavy, design: .rounded))
                             .contentTransition(.numericText())
                         Text(viewModel.state.formattedTargetChangeCountdown)
                             .font(.system(size: 8, weight: .medium, design: .rounded).monospacedDigit())
@@ -67,7 +92,7 @@ struct GameHUDView: View {
                     }
                 }
                 .frame(width: 62, height: 62)
-                .scaleEffect(targetPulse ? 1.04 : 1)
+                .scaleEffect(!reduceMotion && targetPulse ? 1.04 : 1)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Target \(viewModel.state.targetNumber), changes in \(viewModel.state.formattedTargetChangeCountdown)")
 
@@ -75,7 +100,7 @@ struct GameHUDView: View {
                     VStack(spacing: 3) {
                         caption("NEXT")
                         Text(viewModel.state.nextPieceDisplayText)
-                            .font(.system(size: 24, weight: .heavy, design: .rounded))
+                            .font(.system(size: nextFontSize, weight: .heavy, design: .rounded))
                             .foregroundStyle(.white)
                             .frame(width: 36, height: 36)
                             .background(

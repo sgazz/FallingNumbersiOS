@@ -96,7 +96,7 @@ struct ScoreSystem {
         switch occupancyPercent {
         case ..<20:
             adjusted = baseChance * 0.45
-        case 20...40:
+        case 20...45:
             adjusted = baseChance
         case 46...100:
             adjusted = baseChance * 1.35

@@ -5,12 +5,14 @@ struct GameView: View {
     var onMainMenu: (() -> Void)? = nil
     var showsEmbeddedStartOverlay: Bool = false
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isSettingsPresented = false
     @State private var scorePulse = false
     @State private var cascadePulse = false
     @State private var targetPulse = false
     @State private var perfectClearVisible = false
     @State private var cascadeBannerText: String?
+    @State private var targetChangeBannerText: String?
     @State private var powerUpBannerText: String?
     /// Beginner-only: friendly “how the sum works” banner above the lower board edge.
     private struct SumLearnBanner: Equatable {
@@ -96,8 +98,8 @@ struct GameView: View {
                             }
                         }
                         .overlay(alignment: .top) {
-                            if let cascadeBannerText {
-                                Text(cascadeBannerText)
+                            if let bannerText = targetChangeBannerText ?? cascadeBannerText {
+                                Text(bannerText)
                                     .font(.headline.weight(.heavy))
                                     .foregroundStyle(ArcadeTheme.textPrimary)
                                     .padding(.horizontal, 12)
@@ -209,6 +211,9 @@ struct GameView: View {
         .onChange(of: viewModel.targetPulseToken) { _, _ in
             pulseTarget()
         }
+        .onChange(of: viewModel.targetChangeToken) { _, _ in
+            showTargetChangeFeedback()
+        }
         .onChange(of: viewModel.perfectClearToken) { _, _ in
             showPerfectClearFeedback()
         }
@@ -232,6 +237,11 @@ struct GameView: View {
         }
         .sheet(isPresented: $isSettingsPresented) {
             SettingsView(viewModel: viewModel)
+        }
+        .transaction { transaction in
+            if reduceMotion {
+                transaction.animation = nil
+            }
         }
     }
 
@@ -266,6 +276,17 @@ struct GameView: View {
         targetPulse = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             targetPulse = false
+        }
+    }
+
+    private func showTargetChangeFeedback() {
+        withAnimation(.easeOut(duration: 0.18)) {
+            targetChangeBannerText = "New target: \(viewModel.state.targetNumber)"
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            withAnimation(.easeIn(duration: 0.2)) {
+                targetChangeBannerText = nil
+            }
         }
     }
 

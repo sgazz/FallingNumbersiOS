@@ -41,6 +41,21 @@ struct ScoringAndProgressionTests {
     }
 
     @Test
+    func levelThresholdAndProgressBoundariesAreStable() {
+        let levelSystem = LevelSystem()
+        let levelTwoThreshold = levelSystem.levelThreshold(2)
+        let levelThreeThreshold = levelSystem.levelThreshold(3)
+
+        #expect(levelTwoThreshold > 0)
+        #expect(levelThreeThreshold > levelTwoThreshold)
+        #expect(levelSystem.level(forScore: levelTwoThreshold - 1) == 1)
+        #expect(levelSystem.level(forScore: levelTwoThreshold) == 2)
+        #expect(levelSystem.progressToNextLevel(score: levelTwoThreshold) == 0)
+        #expect(levelSystem.progressToNextLevel(score: levelThreeThreshold - 1) < 1)
+        #expect(levelSystem.progressToNextLevel(score: levelThreeThreshold + 500) == 1)
+    }
+
+    @Test
     func lengthTwoScoreUsesX1Multiplier() {
         let scoreSystem = ScoreSystem()
         let breakdown = scoreSystem.scoreBreakdownForClear(tileCount: 2, cascade: 1)
@@ -116,6 +131,17 @@ struct ScoringAndProgressionTests {
         )
         #expect(adjusted > 0.08)
         #expect(abs(adjusted - 0.108) < 0.000_001)
+    }
+
+    @Test(arguments: [41, 45])
+    func midOccupancyUsesStableBasePowerUpChance(occupancy: Int) {
+        let scoreSystem = ScoreSystem()
+        let adjusted = scoreSystem.occupancyAdjustedSpecialSpawnChance(
+            baseChance: 0.08,
+            occupancyPercent: occupancy,
+            mode: .beginner
+        )
+        #expect(adjusted == 0.08)
     }
 
     @Test
