@@ -36,6 +36,11 @@ final class GameScreenViewModel: ObservableObject {
         isCurrentRunEligibleForHighScore && state.isGameOver && state.score > runStartingBest
     }
 
+    var targetTimerProgress: Double {
+        guard engine.config.targetChangeInterval > 0 else { return 0 }
+        return min(1, max(0, state.targetTimerRemaining / engine.config.targetChangeInterval))
+    }
+
     var showsCascadeHUD: Bool {
         state.gameMode == .beginner
     }

@@ -29,15 +29,15 @@ struct GameControlsView: View {
                 Text(label)
                     .font(.caption2.weight(.semibold))
             }
-            .foregroundStyle(NeonTheme.textPrimary)
+            .foregroundStyle(ArcadeTheme.textPrimary)
             .frame(maxWidth: .infinity, minHeight: 46)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(NeonTheme.chipFill)
+                    .fill(ArcadeTheme.chipFill)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(NeonTheme.chipStroke, lineWidth: 0.9)
+                    .stroke(ArcadeTheme.chipStroke, lineWidth: 0.9)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
@@ -54,7 +54,6 @@ struct GameControlsView: View {
         .accessibilityLabel(accessibilityLabel)
     }
 }
-
 private struct ControlPadButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -66,8 +65,6 @@ private struct ControlPadButtonStyle: ButtonStyle {
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
-
-
 struct GameGestureControls: View {
     @ObservedObject var viewModel: GameScreenViewModel
 
@@ -114,5 +111,5 @@ struct GameGestureControls: View {
             )
         }
     }
-
 }
+

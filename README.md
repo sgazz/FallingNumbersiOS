@@ -41,13 +41,13 @@ The app pauses when inactive and resumes a run that was paused by the app lifecy
 - `Falling numbers/Game/Models` — board and grid positions (`Board.swift`), tile types (`Tiles.swift`), mode/configuration (`GameConfig.swift`), events (`GameEvents.swift`), game state, and session statistics.
 - `Falling numbers/Game/Rules` — line-sum detection.
 - `Falling numbers/Game/Systems` — gravity, spawning, score/progression, starting layout, power-ups, telemetry.
-- `Falling numbers/UI/Game` — game screen, view model, HUD, controls, overlays.
+- `Falling numbers/UI/Game` — game screen, view model, HUD, controls, overlays. The compact 84-point HUD shows a target countdown ring and a tile-shaped next preview; landscape places the HUD beside the board. The board has no outer frame or rendering inset, maximizing the grid while keeping cells square.
 - `Falling numbers/UI/Menu` — main menu and how-to-play screen.
 - `Falling numbers/UI/Settings` — sound, haptics, and record reset.
 - `Falling numbers/Rendering/SpriteKit` — renderer and scene (`SpriteKitRenderer.swift`), board geometry, and tile animations.
 - `Falling numbers/Audio` — feedback interfaces and UIKit haptics (`FeedbackClients.swift`), plus generated audio tones (`UIKitAudioClient.swift`). Audio preparation and playback share a background serial queue; interruptions suspend effects, and audio service resets rebuild the players.
 - `Falling numbers/Persistence` — UserDefaults settings and per-mode high scores in `UserDefaultsStores.swift`.
-- `Falling numbers/Theme` — shared visual constants.
+- `Falling numbers/Theme` — the warm paper, ink, teal, and coral palette in `ArcadeTheme.swift`.
 - `Falling numbersTests` — focused rule, engine, timing, spawning, progression, view model, rendering, and regression suites; shared doubles in `Support`.
 - `Falling numbersUITests` — navigation and settings flows, each starting with app launch; a game-screen screenshot is attached to the menu/resume test.
 - `docs` — static marketing, support, and privacy pages.

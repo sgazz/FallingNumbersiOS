@@ -28,145 +28,141 @@ struct GameView: View {
 
     var body: some View {
         ZStack {
-            NeonTheme.backgroundGradient
+            ArcadeTheme.backgroundGradient
                 .ignoresSafeArea()
 
             GeometryReader { proxy in
+                let isWide = proxy.size.width > proxy.size.height
+                let hudWidth: CGFloat? = isWide ? min(300, proxy.size.width * 0.42) : nil
+                let layout = isWide
+                    ? AnyLayout(HStackLayout(alignment: .center, spacing: 16))
+                    : AnyLayout(VStackLayout(spacing: 0))
                 let sidePadding: CGFloat = 8
-                let contentPadding: CGFloat = 8
-                let safeTop = proxy.safeAreaInsets.top
-                let heroTopPadding = safeTop > 0
-                    ? max(0, safeTop - GameHUDMetrics.topSafeAreaOverlap)
-                    : GameHUDMetrics.topPaddingWithoutSafeArea
+                let contentPadding: CGFloat = 2
+                let heroTopPadding: CGFloat = 4
                 let heroHeight = GameHUDMetrics.height
-                let boardTopGap: CGFloat = 2
-                let controlsReservedHeight: CGFloat = voiceOverEnabled ? 66 : 8
-                let verticalSpacing: CGFloat = 2
+                let boardTopGap: CGFloat = 6
+                let controlsReservedHeight: CGFloat = voiceOverEnabled ? 10 : 0
+                let aspect = CGFloat(viewModel.state.board.columns) / CGFloat(viewModel.state.board.rows)
+                let availableBoardHeight = max(1, proxy.size.height - (isWide ? 0 : heroTopPadding + heroHeight + boardTopGap) - controlsReservedHeight)
+                let maxBoardWidth = max(1, proxy.size.width - sidePadding * 2 - (isWide ? (hudWidth ?? 0) + 20 : 0))
+                let boardHeight = min(availableBoardHeight, maxBoardWidth / aspect)
+                let boardWidth = boardHeight * aspect
 
-                let fixedVertical = heroTopPadding
-                    + heroHeight
-                    + boardTopGap
-                    + controlsReservedHeight
-                    + verticalSpacing
-
-                let availableBoardHeight = max(220, proxy.size.height - fixedVertical)
-                let maxBoardWidth = max(170, proxy.size.width - sidePadding * 2)
-                let boardHeight = min(availableBoardHeight, maxBoardWidth * 2)
-                let boardWidth = boardHeight * 0.5
-
-                VStack(spacing: verticalSpacing) {
+                layout {
                     GameHUDView(viewModel: viewModel, scorePulse: scorePulse,
                                 cascadePulse: cascadePulse, targetPulse: targetPulse)
-                        .frame(height: heroHeight, alignment: .top)
+                        .frame(width: hudWidth, height: heroHeight, alignment: .top)
                         .padding(.horizontal, contentPadding)
 
-                    Color.clear.frame(height: boardTopGap)
+                    if !isWide { Color.clear.frame(height: boardTopGap) }
 
                     SpriteKitRenderer(state: Binding(
-                        get: { viewModel.state },
-                        set: { _ in }
-                    ))
-                    .frame(width: boardWidth, height: boardHeight)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(
-                                Color.orange.opacity(
-                                    (viewModel.showsCascadeHUD
-                                        ? min(0.16, Double(max(0, viewModel.state.cascadeCount - 1)) * 0.03)
-                                        : 0)
-                                    + transientBoardGlow
+                            get: { viewModel.state },
+                            set: { _ in }
+                        ))
+                        .frame(width: boardWidth, height: boardHeight)
+                        .clipShape(Rectangle())
+                        .overlay {
+                            Rectangle()
+                                .fill(
+                                    Color.orange.opacity(
+                                        (viewModel.showsCascadeHUD
+                                            ? min(0.16, Double(max(0, viewModel.state.cascadeCount - 1)) * 0.03)
+                                            : 0)
+                                        + transientBoardGlow
+                                    )
                                 )
-                            )
-                            .allowsHitTesting(false)
-                    }
-                    .overlay {
-                        GameGestureControls(viewModel: viewModel)
-                    }
-                    .overlay(alignment: .center) {
-                        if perfectClearVisible {
-                            Text("Perfect Clear!")
-                                .font(.title3.weight(.heavy))
-                                .tracking(1.0)
-                                .foregroundStyle(NeonTheme.textPrimary)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 10)
-                                .background(NeonTheme.chipFill.opacity(0.96))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(NeonTheme.chipStroke, lineWidth: 1)
-                                )
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                                .transition(.opacity.combined(with: .scale(scale: 0.94)))
+                                .allowsHitTesting(false)
                         }
-                    }
-                    .overlay(alignment: .top) {
-                        if let cascadeBannerText {
-                            Text(cascadeBannerText)
-                                .font(.headline.weight(.heavy))
-                                .foregroundStyle(NeonTheme.textPrimary)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 7)
-                                .background(NeonTheme.chipFill.opacity(0.97))
-                                .overlay(
-                                    Capsule()
-                                        .stroke(NeonTheme.chipStroke, lineWidth: 0.9)
-                                )
-                                .clipShape(Capsule())
-                                .padding(.top, 10)
-                                .transition(.opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.95)))
+                        .overlay {
+                            GameGestureControls(viewModel: viewModel)
                         }
-                    }
-                    .overlay(alignment: .center) {
-                        if let powerUpBannerText {
-                            Text(powerUpBannerText)
-                                .font(.headline.weight(.heavy))
-                                .foregroundStyle(NeonTheme.textPrimary)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 8)
-                                .background(NeonTheme.chipFill.opacity(0.98))
-                                .overlay(
-                                    Capsule()
-                                        .stroke(NeonTheme.chipStroke, lineWidth: 1)
-                                )
-                                .clipShape(Capsule())
-                                .transition(.opacity.combined(with: .scale(scale: 0.93)))
-                        }
-                    }
-                    .overlay(alignment: .bottom) {
-                        if let sumLearnBanner {
-                            VStack(spacing: 6) {
-                                Text(sumLearnBanner.mainLine)
+                        .overlay(alignment: .center) {
+                            if perfectClearVisible {
+                                Text("Perfect Clear!")
                                     .font(.title3.weight(.heavy))
-                                    .foregroundStyle(NeonTheme.textPrimary)
-                                    .multilineTextAlignment(.center)
-                                    .minimumScaleFactor(0.68)
-                                    .lineLimit(2)
-                                Text(sumLearnBanner.subLine)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(NeonTheme.textSecondary)
-                                    .multilineTextAlignment(.center)
-                                    .fixedSize(horizontal: false, vertical: true)
+                                    .tracking(1.0)
+                                    .foregroundStyle(ArcadeTheme.textPrimary)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 10)
+                                    .background(ArcadeTheme.chipFill.opacity(0.96))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(ArcadeTheme.chipStroke, lineWidth: 1)
+                                    )
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .transition(.opacity.combined(with: .scale(scale: 0.94)))
                             }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 12)
-                            .frame(maxWidth: .infinity)
-                            .background(NeonTheme.chipFill.opacity(0.97))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .stroke(NeonTheme.chipStroke, lineWidth: 1)
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 14))
-                            .padding(.horizontal, 6)
-                            .padding(.bottom, sumBannerBottomOffset)
-                            .accessibilityElement(children: .combine)
-                            .accessibilityLabel(sumLearnBanner.accessibilitySummary)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
                         }
-                    }
-                    .scaleEffect(boardScale)
-                    .offset(y: boardOffsetY)
+                        .overlay(alignment: .top) {
+                            if let cascadeBannerText {
+                                Text(cascadeBannerText)
+                                    .font(.headline.weight(.heavy))
+                                    .foregroundStyle(ArcadeTheme.textPrimary)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 7)
+                                    .background(ArcadeTheme.chipFill.opacity(0.97))
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(ArcadeTheme.chipStroke, lineWidth: 0.9)
+                                    )
+                                    .clipShape(Capsule())
+                                    .padding(.top, 10)
+                                    .transition(.opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.95)))
+                            }
+                        }
+                        .overlay(alignment: .center) {
+                            if let powerUpBannerText {
+                                Text(powerUpBannerText)
+                                    .font(.headline.weight(.heavy))
+                                    .foregroundStyle(ArcadeTheme.textPrimary)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                                    .background(ArcadeTheme.chipFill.opacity(0.98))
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(ArcadeTheme.chipStroke, lineWidth: 1)
+                                    )
+                                    .clipShape(Capsule())
+                                    .transition(.opacity.combined(with: .scale(scale: 0.93)))
+                            }
+                        }
+                        .overlay(alignment: .bottom) {
+                            if let sumLearnBanner {
+                                VStack(spacing: 6) {
+                                    Text(sumLearnBanner.mainLine)
+                                        .font(.title3.weight(.heavy))
+                                        .foregroundStyle(ArcadeTheme.textPrimary)
+                                        .multilineTextAlignment(.center)
+                                        .minimumScaleFactor(0.68)
+                                        .lineLimit(2)
+                                    Text(sumLearnBanner.subLine)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(ArcadeTheme.textSecondary)
+                                        .multilineTextAlignment(.center)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+                                .frame(maxWidth: .infinity)
+                                .background(ArcadeTheme.chipFill.opacity(0.97))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(ArcadeTheme.chipStroke, lineWidth: 1)
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 14))
+                                .padding(.horizontal, 6)
+                                .padding(.bottom, sumBannerBottomOffset)
+                                .accessibilityElement(children: .combine)
+                                .accessibilityLabel(sumLearnBanner.accessibilitySummary)
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                            }
+                        }
+                        .scaleEffect(boardScale)
+                        .offset(y: boardOffsetY)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: isWide ? .center : .top)
                 .padding(.top, heroTopPadding)
                 .padding(.horizontal, sidePadding)
 
@@ -195,8 +191,6 @@ struct GameView: View {
                         .padding(.horizontal, 14)
                         .padding(.top, 6)
                         .padding(.bottom, 8)
-                } else {
-                    Color.clear.frame(height: 1)
                 }
             }
         }

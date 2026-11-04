@@ -50,6 +50,31 @@ final class Falling_numbersUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["High score 0"].exists)
     }
 
+    func testGameLayoutFitsLandscapeAndPortrait() {
+        let app = launchGame()
+        defer { XCUIDevice.shared.orientation = .portrait }
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let pause = app.buttons["Pause game"]
+        XCTAssertTrue(pause.waitForExistence(timeout: 5))
+        XCTAssertTrue(pause.isHittable)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Score ")).firstMatch.isHittable)
+        // Interact after rotation so XCTest waits for the interface to settle
+        // before recording the screenshot (existence alone can succeed mid-rotation).
+        tap(pause)
+        tap(app.buttons["Resume"])
+        let next = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Next piece ")).firstMatch
+        XCTAssertTrue(next.isHittable)
+        XCTAssertTrue(app.windows.firstMatch.frame.contains(next.frame))
+        let landscape = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        landscape.name = "Game - Landscape"
+        landscape.lifetime = .keepAlways
+        add(landscape)
+        XCUIDevice.shared.orientation = .portrait
+        XCTAssertTrue(pause.isHittable)
+        tap(pause)
+        XCTAssertTrue(app.buttons["Resume"].isHittable)
+    }
+
     private func launchGame() -> XCUIApplication {
         let app = XCUIApplication()
         app.launch()

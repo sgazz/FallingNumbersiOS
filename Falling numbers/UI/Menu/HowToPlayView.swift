@@ -8,7 +8,7 @@ struct HowToPlayView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                NeonTheme.backgroundGradient
+                ArcadeTheme.backgroundGradient
                     .ignoresSafeArea()
 
                 ScrollView {
@@ -16,7 +16,7 @@ struct HowToPlayView: View {
                         infoCard(title: "How to Play") {
                             Text("Move falling numbers and make lines that add up to the Target.")
                                 .font(.title3.weight(.semibold))
-                                .foregroundStyle(NeonTheme.textPrimary)
+                                .foregroundStyle(ArcadeTheme.textPrimary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
 
@@ -35,7 +35,7 @@ struct HowToPlayView: View {
 
                             Text("When the numbers add up to the Target, the line disappears!")
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(NeonTheme.textSecondary)
+                                .foregroundStyle(ArcadeTheme.textSecondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
 
@@ -54,7 +54,7 @@ struct HowToPlayView: View {
 
                             Text("Vertical lines work too!")
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(NeonTheme.textSecondary)
+                                .foregroundStyle(ArcadeTheme.textSecondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
 
@@ -91,11 +91,11 @@ struct HowToPlayView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(NeonTheme.textPrimary)
+                        .foregroundStyle(ArcadeTheme.textPrimary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
-                        .background(Capsule().fill(NeonTheme.chipFill))
-                        .overlay(Capsule().stroke(NeonTheme.chipStroke, lineWidth: 0.8))
+                        .background(Capsule().fill(ArcadeTheme.chipFill))
+                        .overlay(Capsule().stroke(ArcadeTheme.chipStroke, lineWidth: 0.8))
                         .accessibilityLabel("Done")
                 }
             }
@@ -111,12 +111,12 @@ struct HowToPlayView: View {
     private func bullet(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Circle()
-                .fill(NeonTheme.accentPrimary)
+                .fill(ArcadeTheme.accentPrimary)
                 .frame(width: 6, height: 6)
                 .padding(.top, 6)
             Text(text)
                 .font(.subheadline)
-                .foregroundStyle(NeonTheme.textPrimary)
+                .foregroundStyle(ArcadeTheme.textPrimary)
             Spacer(minLength: 0)
         }
     }
@@ -124,7 +124,7 @@ struct HowToPlayView: View {
     private func equation(_ text: String) -> some View {
         Text(text)
             .font(.title3.weight(.bold))
-            .foregroundStyle(NeonTheme.textPrimary)
+            .foregroundStyle(ArcadeTheme.textPrimary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityLabel(text.replacingOccurrences(of: "+", with: " plus ").replacingOccurrences(of: "=", with: " equals "))
     }
@@ -136,13 +136,13 @@ struct HowToPlayView: View {
             .frame(width: 38, height: 38)
             .background(
                 RoundedRectangle(cornerRadius: 11)
-                    .fill(Color(NeonTheme.tileColor(for: value)))
+                    .fill(Color(ArcadeTheme.tileColor(for: value)))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 11)
                     .stroke(Color.white.opacity(0.26), lineWidth: 0.9)
             )
-            .shadow(color: Color(NeonTheme.tileColor(for: value)).opacity(0.42), radius: 6)
+            .shadow(color: Color(ArcadeTheme.tileColor(for: value)).opacity(0.42), radius: 6)
     }
 
     private func targetBadge(_ target: Int, animated: Bool) -> some View {
@@ -160,14 +160,14 @@ struct HowToPlayView: View {
             Capsule()
                 .fill(
                     LinearGradient(
-                        colors: [NeonTheme.accentPrimary, NeonTheme.accentSecondary],
+                        colors: [ArcadeTheme.accentPrimary, ArcadeTheme.accentSecondary],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
                 )
         )
         .overlay(Capsule().stroke(Color.white.opacity(0.25), lineWidth: 1))
-        .shadow(color: NeonTheme.glowColor.opacity(animated ? 0.52 : 0.26), radius: animated ? 14 : 6)
+        .shadow(color: ArcadeTheme.glowColor.opacity(animated ? 0.52 : 0.26), radius: animated ? 14 : 6)
         .scaleEffect(animated ? 1.04 : 1.0)
         .animation(.easeInOut(duration: 0.55), value: animated)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -182,15 +182,15 @@ struct HowToPlayView: View {
                 .frame(width: 34, height: 34)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(NeonTheme.chipFill)
+                        .fill(ArcadeTheme.chipFill)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(NeonTheme.chipStroke, lineWidth: 1)
+                        .stroke(ArcadeTheme.chipStroke, lineWidth: 1)
                 )
             Text(text)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(NeonTheme.textPrimary)
+                .foregroundStyle(ArcadeTheme.textPrimary)
             Spacer()
         }
     }
@@ -200,11 +200,11 @@ struct HowToPlayView: View {
             Text(title.uppercased())
                 .font(.caption.weight(.bold))
                 .tracking(0.8)
-                .foregroundStyle(NeonTheme.textSecondary)
+                .foregroundStyle(ArcadeTheme.textSecondary)
             content()
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 14).fill(NeonTheme.cardFill))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(NeonTheme.cardStroke, lineWidth: 0.9))
+        .background(RoundedRectangle(cornerRadius: 20).fill(ArcadeTheme.cardFill))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(ArcadeTheme.cardStroke, lineWidth: 0.9))
     }
 }

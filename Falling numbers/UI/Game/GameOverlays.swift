@@ -7,40 +7,49 @@ struct GameOverlays: View {
     var onMainMenu: (() -> Void)?
     var onSettings: () -> Void
 
-    @ViewBuilder
     var body: some View {
-        switch kind {
-        case .start: startOverlay
-        case .pause: pauseOverlay
-        case .gameOver: gameOverOverlay
+        GeometryReader { geometry in
+            ZStack {
+                ArcadeTheme.overlayScrim.ignoresSafeArea()
+                ScrollView {
+                    VStack {
+                        switch kind {
+                        case .start: startOverlay
+                        case .pause: pauseOverlay
+                        case .gameOver: gameOverOverlay
+                        }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: max(0, geometry.size.height - 32))
+                    .padding(.vertical, 16)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+            }
         }
     }
 
     @ViewBuilder
     private var startOverlay: some View {
-        NeonTheme.overlayScrim
-            .ignoresSafeArea()
-
         VStack(spacing: 12) {
             Text("Fall, Number… Fall!")
                 .font(.title.bold())
-                .foregroundStyle(NeonTheme.textPrimary)
+                .foregroundStyle(ArcadeTheme.textPrimary)
             Text("Make horizontal or vertical sums to match the target.")
                 .font(.subheadline)
-                .foregroundStyle(NeonTheme.textSecondary)
+                .foregroundStyle(ArcadeTheme.textSecondary)
             startLineHint
             Button("Play", action: viewModel.startGameFromOverlay)
                 .buttonStyle(.borderedProminent)
-                .tint(NeonTheme.controlsTint)
+                .tint(ArcadeTheme.controlsTint)
                 .accessibilityLabel("Start game")
         }
         .padding(22)
-        .background(NeonTheme.cardFill)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(ArcadeTheme.cardFill)
+        .clipShape(RoundedRectangle(cornerRadius: 26))
+        .frame(maxWidth: 320)
         .scaleEffect(0.985)
         .overlay {
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(NeonTheme.cardStroke, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 26)
+                .stroke(ArcadeTheme.cardStroke, lineWidth: 1)
         }
     }
 
@@ -49,11 +58,11 @@ struct GameOverlays: View {
             hintChip("4")
             Text("+")
                 .font(.footnote.weight(.bold))
-                .foregroundStyle(NeonTheme.textSecondary)
+                .foregroundStyle(ArcadeTheme.textSecondary)
             hintChip("6")
             Text("=")
                 .font(.footnote.weight(.bold))
-                .foregroundStyle(NeonTheme.textSecondary)
+                .foregroundStyle(ArcadeTheme.textSecondary)
             hintChip("10")
         }
         .accessibilityElement(children: .combine)
@@ -63,27 +72,24 @@ struct GameOverlays: View {
     private func hintChip(_ text: String) -> some View {
         Text(text)
             .font(.footnote.weight(.bold))
-            .foregroundStyle(NeonTheme.textPrimary)
+            .foregroundStyle(ArcadeTheme.textPrimary)
             .frame(width: 28, height: 28)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(NeonTheme.chipFill)
+                    .fill(ArcadeTheme.chipFill)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(NeonTheme.chipStroke, lineWidth: 0.8)
+                    .stroke(ArcadeTheme.chipStroke, lineWidth: 0.8)
             )
     }
 
     @ViewBuilder
     private var pauseOverlay: some View {
-        NeonTheme.overlayScrim
-            .ignoresSafeArea()
-
         VStack(spacing: 14) {
             Text("Paused")
                 .font(.title2.bold())
-                .foregroundStyle(NeonTheme.textPrimary)
+                .foregroundStyle(ArcadeTheme.textPrimary)
 
             VStack(spacing: 10) {
                 pauseActionButton(
@@ -117,12 +123,12 @@ struct GameOverlays: View {
             .frame(maxWidth: 260)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 24)
-        .background(NeonTheme.cardFill)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.vertical, 28)
+        .background(ArcadeTheme.cardFill)
+        .clipShape(RoundedRectangle(cornerRadius: 26))
         .overlay {
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(NeonTheme.cardStroke, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 26)
+                .stroke(ArcadeTheme.cardStroke, lineWidth: 1)
         }
         .frame(maxWidth: 320)
     }
@@ -140,15 +146,15 @@ struct GameOverlays: View {
         Button(action: action) {
             Text(title)
                 .font(.headline.weight(.semibold))
-                .foregroundStyle(style == .primary ? Color.white : NeonTheme.textPrimary)
+                .foregroundStyle(style == .primary ? Color.white : ArcadeTheme.textPrimary)
                 .frame(maxWidth: .infinity, minHeight: 48)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(style == .primary ? AnyShapeStyle(NeonTheme.buttonFill) : AnyShapeStyle(NeonTheme.chipFill))
+                        .fill(style == .primary ? AnyShapeStyle(ArcadeTheme.buttonFill) : AnyShapeStyle(ArcadeTheme.chipFill))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(style == .primary ? Color.white.opacity(0.26) : NeonTheme.chipStroke, lineWidth: 1)
+                        .stroke(style == .primary ? Color.white.opacity(0.26) : ArcadeTheme.chipStroke, lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
@@ -156,34 +162,31 @@ struct GameOverlays: View {
 
     @ViewBuilder
     private var gameOverOverlay: some View {
-        NeonTheme.overlayScrim
-            .ignoresSafeArea()
-
         VStack(spacing: 14) {
             Text("Game Over")
                 .font(.title.bold())
-                .foregroundStyle(NeonTheme.textPrimary)
+                .foregroundStyle(ArcadeTheme.textPrimary)
 
             VStack(spacing: 8) {
                 Text("Final Score")
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(NeonTheme.textSecondary)
+                    .foregroundStyle(ArcadeTheme.textSecondary)
                 Text("\(viewModel.state.score)")
                     .font(.system(size: 40, weight: .heavy, design: .rounded))
-                    .foregroundStyle(NeonTheme.textPrimary)
+                    .foregroundStyle(ArcadeTheme.textPrimary)
                     .minimumScaleFactor(0.7)
                     .lineLimit(1)
                 Text("Best \(viewModel.highScore)")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(NeonTheme.textSecondary)
+                    .foregroundStyle(ArcadeTheme.textSecondary)
                 if viewModel.didSetNewBestInRun || viewModel.isNewBestForCurrentGameOver {
                     Text("New Best!")
                         .font(.subheadline.weight(.heavy))
-                        .foregroundStyle(NeonTheme.controlsTint)
+                        .foregroundStyle(ArcadeTheme.controlsTint)
                 }
                 Text("Mode: \(viewModel.state.gameMode.title)")
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(NeonTheme.textSecondary)
+                    .foregroundStyle(ArcadeTheme.textSecondary)
             }
             .padding(.vertical, 4)
 
@@ -196,11 +199,11 @@ struct GameOverlays: View {
                 recapRow(title: "Longest Line", value: "\(viewModel.state.longestLineCleared)")
             }
             .padding(10)
-            .background(NeonTheme.chipFill)
+            .background(ArcadeTheme.chipFill)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(NeonTheme.chipStroke, lineWidth: 0.8)
+                    .stroke(ArcadeTheme.chipStroke, lineWidth: 0.8)
             )
 
             VStack(spacing: 10) {
@@ -231,12 +234,12 @@ struct GameOverlays: View {
             .frame(maxWidth: 260)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 24)
-        .background(NeonTheme.cardFill)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.vertical, 28)
+        .background(ArcadeTheme.cardFill)
+        .clipShape(RoundedRectangle(cornerRadius: 26))
         .overlay {
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(NeonTheme.cardStroke, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 26)
+                .stroke(ArcadeTheme.cardStroke, lineWidth: 1)
         }
         .frame(maxWidth: 320)
     }
@@ -245,11 +248,11 @@ struct GameOverlays: View {
         HStack {
             Text(title)
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(NeonTheme.textSecondary)
+                .foregroundStyle(ArcadeTheme.textSecondary)
             Spacer(minLength: 12)
             Text(value)
                 .font(.footnote.weight(.heavy))
-                .foregroundStyle(NeonTheme.textPrimary)
+                .foregroundStyle(ArcadeTheme.textPrimary)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title) \(value)")

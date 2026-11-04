@@ -1,268 +1,176 @@
 import SwiftUI
 
 struct MainMenuView: View {
-    /// Current Gregorian calendar year when the modal is composed (shown on credits sheet).
-    private static var currentCalendarYearText: String {
-        let year = Calendar.current.component(.year, from: Date())
-        return "\(year)"
-    }
-
     @ObservedObject var viewModel: GameScreenViewModel
     var onPlay: (GameMode) -> Void
+    @State private var selectedMode: GameMode = .beginner
     @State private var isHowToPresented = false
     @State private var isSettingsPresented = false
     @State private var isCreditsPresented = false
-    @State private var drift = false
-    @State private var selectedMode: GameMode = .beginner
 
     var body: some View {
         ZStack {
-            NeonTheme.backgroundGradient
-                .ignoresSafeArea()
-
-            floatingBackgroundTiles
-
-            VStack(spacing: 18) {
-                HStack {
-                    Spacer()
-                    Button {
-                        isSettingsPresented = true
-                    } label: {
-                        Image(systemName: "gearshape.fill")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(NeonTheme.textPrimary)
-                            .frame(width: 42, height: 42)
-                            .background(NeonTheme.chipFill)
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(NeonTheme.chipStroke, lineWidth: 1))
+            ArcadeTheme.backgroundGradient.ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 26) {
+                    HStack {
+                        Text("THE ADDITION ARCADE")
+                            .font(.system(size: 10, weight: .heavy, design: .rounded))
+                            .tracking(2)
+                            .foregroundStyle(ArcadeTheme.accentPrimary)
+                        Spacer()
+                        Button { isSettingsPresented = true } label: {
+                            Image(systemName: "slider.horizontal.3")
+                                .font(.system(size: 18, weight: .semibold))
+                                .frame(width: 46, height: 46)
+                                .background(ArcadeTheme.cardFill, in: Circle())
+                                .overlay(Circle().stroke(ArcadeTheme.cardStroke, lineWidth: 1))
+                        }
+                        .accessibilityLabel("Settings")
                     }
-                    .accessibilityLabel("Settings")
-                }
-                .padding(.horizontal, 20)
 
-                Spacer(minLength: 18)
+                    VStack(spacing: 18) {
+                        HStack(spacing: 10) {
+                            menuTile(4, rotation: -10)
+                            Image(systemName: "plus")
+                                .font(.system(size: 17, weight: .bold))
+                                .foregroundStyle(ArcadeTheme.textSecondary)
+                            menuTile(6, rotation: 8)
+                            Image(systemName: "equal")
+                                .font(.system(size: 17, weight: .bold))
+                                .foregroundStyle(ArcadeTheme.textSecondary)
+                            menuTile(10, rotation: -5)
+                        }
+                        .padding(.vertical, 12)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("Four plus six equals ten")
 
-                Image("MenuAppIcon")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 150, height: 150)
-                    .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-                    .shadow(color: NeonTheme.glowColor.opacity(0.28), radius: 18, y: 8)
-                    .accessibilityHidden(true)
-
-                VStack(spacing: 6) {
-                    Text("Fall, Number… Fall!")
-                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                        .foregroundStyle(NeonTheme.textPrimary)
-                        .multilineTextAlignment(.center)
-                        .shadow(color: NeonTheme.accentSecondary.opacity(0.35), radius: 8)
-                    Text("Learn addition by making number lines.")
-                        .font(.subheadline)
-                        .foregroundStyle(NeonTheme.textSecondary)
-                        .multilineTextAlignment(.center)
-                }
-
-                Spacer(minLength: 20)
-
-                VStack(spacing: 10) {
-                    modePicker
-
-                    menuButton(title: "PLAY", primary: true) {
-                        onPlay(selectedMode)
+                        Text("Fall, Number…\nFall!")
+                            .font(.system(size: 43, weight: .heavy, design: .rounded))
+                            .tracking(-1.8)
+                            .lineSpacing(-2)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("Small numbers. Big possibilities.")
+                            .font(.system(size: 15, weight: .medium, design: .rounded))
+                            .foregroundStyle(ArcadeTheme.textSecondary)
                     }
-                    .accessibilityLabel("Play")
 
-                    menuButton(title: "HOW TO PLAY", primary: false) {
-                        isHowToPresented = true
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("FIND YOUR RHYTHM")
+                            .font(.system(size: 10, weight: .heavy, design: .rounded))
+                            .tracking(1.8)
+                            .foregroundStyle(ArcadeTheme.textSecondary)
+                        HStack(spacing: 10) {
+                            modeCard(.beginner, symbol: "leaf", subtitle: "Room to learn")
+                            modeCard(.expert, symbol: "bolt", subtitle: "Think on your feet")
+                        }
+                        Button { onPlay(selectedMode) } label: {
+                            HStack {
+                                Spacer()
+                                Text("Let's play")
+                                Spacer()
+                                Image(systemName: "arrow.right")
+                            }
+                            .font(.system(size: 19, weight: .bold, design: .rounded))
+                            .padding(20)
+                            .foregroundStyle(.white)
+                            .background(ArcadeTheme.buttonFill, in: RoundedRectangle(cornerRadius: 19))
+                        }
+                        .accessibilityLabel("Play")
+                        Button { isHowToPresented = true } label: {
+                            Label("How to play", systemImage: "questionmark.circle")
+                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                .frame(maxWidth: .infinity, minHeight: 46)
+                        }
+                        .accessibilityLabel("How to play")
                     }
-                    .accessibilityLabel("How to play")
-                }
-                .padding(14)
-                .background(
-                    RoundedRectangle(cornerRadius: 18)
-                        .fill(NeonTheme.panelFill)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18)
-                        .stroke(NeonTheme.cardStroke, lineWidth: 1)
-                )
-                .padding(.horizontal, 20)
 
-                Spacer()
-
-                Button {
-                    isCreditsPresented = true
-                } label: {
-                    menuBottomBrandMark
+                    Button { isCreditsPresented = true } label: {
+                        HStack(spacing: 8) {
+                            Image("MenuAppIcon")
+                                .resizable().frame(width: 24, height: 24)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                            Text("MADE FOR CURIOUS MINDS")
+                                .font(.system(size: 8, weight: .bold, design: .rounded))
+                                .tracking(1.3)
+                        }
+                        .foregroundStyle(ArcadeTheme.textSecondary)
+                        .frame(minHeight: 44)
+                    }
+                    .accessibilityLabel("Credits")
                 }
-                .buttonStyle(.plain)
-                .padding(.bottom, 10)
-                .accessibilityHint("Opens credits.")
-                .accessibilityLabel("Credits")
+                .padding(.horizontal, 26)
+                .padding(.vertical, 18)
+                .frame(maxWidth: 480)
+                .frame(maxWidth: .infinity)
             }
-            .padding(.vertical, 18)
+            .scrollIndicators(.hidden)
         }
-        .sheet(isPresented: $isHowToPresented) {
-            HowToPlayView()
-        }
-        .sheet(isPresented: $isSettingsPresented) {
-            SettingsView(viewModel: viewModel)
-        }
+        .foregroundStyle(ArcadeTheme.textPrimary)
+        .buttonStyle(.plain)
+        .sheet(isPresented: $isHowToPresented) { HowToPlayView() }
+        .sheet(isPresented: $isSettingsPresented) { SettingsView(viewModel: viewModel) }
         .sheet(isPresented: $isCreditsPresented) {
             NavigationStack {
-                ZStack {
-                    NeonTheme.backgroundGradient
-                        .ignoresSafeArea()
-                    VStack(spacing: 12) {
-                        Text("Made by Stanko G.")
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(NeonTheme.textPrimary)
-                            .multilineTextAlignment(.center)
-                        Text(Self.currentCalendarYearText)
-                            .font(.title2.weight(.bold).monospacedDigit())
-                            .foregroundStyle(NeonTheme.textSecondary)
-                    }
-                    .padding(28)
+                VStack(spacing: 20) {
+                    Image("SGLogo")
+                        .resizable().renderingMode(.template).scaledToFit()
+                        .frame(width: 150, height: 60)
+                    Text("Made by Stanko G.").font(.title3.bold())
+                    Text(String(Calendar.current.component(.year, from: Date())))
+                        .foregroundStyle(ArcadeTheme.textSecondary)
                 }
-                .toolbarBackground(.hidden, for: .navigationBar)
-                .toolbarColorScheme(.dark, for: .navigationBar)
+                .foregroundStyle(ArcadeTheme.textPrimary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(ArcadeTheme.backgroundGradient)
+                .navigationTitle("About")
+                .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .principal) {
-                        Text("About")
-                            .font(.headline.weight(.semibold))
-                            .foregroundStyle(NeonTheme.textPrimary)
-                    }
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") {
-                            isCreditsPresented = false
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(NeonTheme.textPrimary)
-                        .accessibilityLabel("Done")
+                        Button("Done") { isCreditsPresented = false }
                     }
                 }
             }
             .presentationDetents([.medium])
-            .presentationDragIndicator(.visible)
         }
-        .onAppear {
-            selectedMode = viewModel.state.gameMode
-            withAnimation(.easeInOut(duration: 6).repeatForever(autoreverses: true)) {
-                drift = true
-            }
-        }
+        .onAppear { selectedMode = viewModel.state.gameMode }
     }
 
-    /// Branded mark at bottom of intro screen only (`SGLogo` asset, template tinted white).
-    private var menuBottomBrandMark: some View {
-        Image("SGLogo")
-            .resizable()
-            .renderingMode(.template)
-            .scaledToFit()
-            .frame(maxWidth: 200, maxHeight: 52)
-            .foregroundStyle(Color.white.opacity(0.92))
-            .shadow(color: .black.opacity(0.35), radius: 3, y: 1)
-            .padding(.horizontal, 24)
-    }
-
-    private var modePicker: some View {
-        HStack(spacing: 8) {
-            ForEach(GameMode.allCases, id: \.self) { mode in
-                Button {
-                    selectedMode = mode
-                } label: {
-                    VStack(spacing: 2) {
-                        Text(mode.title)
-                            .font(.subheadline.weight(.bold))
-                        Text(mode == .expert ? "Full random targets and numbers from the start." : "Current friendly ramp and pacing.")
-                            .font(.caption2.weight(.medium))
-                            .lineLimit(2)
-                            .multilineTextAlignment(.center)
-                    }
-                    .foregroundStyle(selectedMode == mode ? Color.white : NeonTheme.textPrimary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 8)
-                    .frame(maxWidth: .infinity, minHeight: 54)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(selectedMode == mode ? AnyShapeStyle(NeonTheme.buttonFill) : AnyShapeStyle(NeonTheme.chipFill))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(selectedMode == mode ? Color.white.opacity(0.26) : NeonTheme.chipStroke, lineWidth: 1)
-                    )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(mode.title)
-            }
-        }
-    }
-
-    private func menuButton(title: String, primary: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(primary ? Color.white : NeonTheme.textPrimary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(primary ? AnyShapeStyle(NeonTheme.buttonFill) : AnyShapeStyle(NeonTheme.chipFill))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(primary ? Color.white.opacity(0.26) : NeonTheme.chipStroke, lineWidth: 1.0)
-                )
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var floatingBackgroundTiles: some View {
-        ZStack {
-            floatingTile("3", color: Color(NeonTheme.tileColor(for: 3)), x: -130, y: -220, rotation: -11)
-            floatingTile("6", color: Color(NeonTheme.tileColor(for: 6)), x: 100, y: -180, rotation: 8)
-            floatingTile("8", color: Color(NeonTheme.tileColor(for: 8)), x: -120, y: 120, rotation: -7)
-            floatingTile("4", color: Color(NeonTheme.tileColor(for: 4)), x: 115, y: 170, rotation: 10)
-        }
-        .opacity(0.34)
-        .allowsHitTesting(false)
-    }
-
-    private func floatingTile(_ value: String, color: Color, x: CGFloat, y: CGFloat, rotation: Double) -> some View {
-        Text(value)
-            .font(.system(size: 28, weight: .heavy, design: .rounded))
+    private func menuTile(_ number: Int, rotation: Double) -> some View {
+        Text("\(number)")
+            .font(.system(size: 35, weight: .heavy, design: .rounded))
             .foregroundStyle(.white)
-            .frame(width: 66, height: 66)
-            .background(
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(color)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18)
-                    .stroke(Color.white.opacity(0.24), lineWidth: 1)
-            )
-            .shadow(color: color.opacity(0.45), radius: 10)
-            .rotationEffect(.degrees(rotation + (drift ? 2.5 : -2.5)))
-            .offset(x: x + (drift ? 6 : -6), y: y + (drift ? -10 : 10))
+            .frame(width: 65, height: 72)
+            .background(Color(ArcadeTheme.tileColor(for: number == 10 ? 3 : number)),
+                        in: RoundedRectangle(cornerRadius: 18))
+            .rotationEffect(.degrees(rotation))
+            .shadow(color: ArcadeTheme.ink.opacity(0.14), radius: 0, x: 0, y: 5)
     }
-}
 
-#if DEBUG
-struct MainMenuView_Previews: PreviewProvider {
-    static var previews: some View {
-        Group {
-            MainMenuView(viewModel: GameScreenViewModel(), onPlay: { _ in })
-                .previewDisplayName("Menu - iPhone SE")
-                .previewDevice("iPhone SE (3rd generation)")
-
-            MainMenuView(viewModel: GameScreenViewModel(), onPlay: { _ in })
-                .previewDisplayName("Menu - iPhone 16")
-                .previewDevice("iPhone 16")
-
-            MainMenuView(viewModel: GameScreenViewModel(), onPlay: { _ in })
-                .previewDisplayName("Menu - iPhone 16 Pro Max")
-                .previewDevice("iPhone 16 Pro Max")
+    private func modeCard(_ mode: GameMode, symbol: String, subtitle: String) -> some View {
+        let selected = selectedMode == mode
+        return Button { selectedMode = mode } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Image(systemName: symbol)
+                    Spacer()
+                    Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                }
+                .foregroundStyle(selected ? ArcadeTheme.accentPrimary : ArcadeTheme.textSecondary)
+                Text(mode.title).font(.system(size: 18, weight: .bold, design: .rounded))
+                Text(subtitle)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(ArcadeTheme.textSecondary)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(selected ? ArcadeTheme.accentPrimary.opacity(0.08) : ArcadeTheme.cardFill,
+                        in: RoundedRectangle(cornerRadius: 18))
+            .overlay(RoundedRectangle(cornerRadius: 18)
+                .stroke(selected ? ArcadeTheme.accentPrimary : ArcadeTheme.cardStroke, lineWidth: selected ? 1.5 : 1))
         }
+        .accessibilityLabel(mode.title)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
-#endif

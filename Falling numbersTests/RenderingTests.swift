@@ -93,4 +93,18 @@ struct RenderingTests {
         #expect(state.board.cell(at: GridPosition(row: 14, column: 1))?.id == first.id)
     }
 
+    @Test(arguments: [GameMode.beginner, GameMode.expert])
+    func boardUsesFullViewportWithoutBorderOrInset(mode: GameMode) throws {
+        let state = GameState.initial(config: .default, mode: mode)
+        let size = CGSize(width: state.board.columns * 40, height: state.board.rows * 40)
+        let board = BoardNode()
+        board.render(state: state, sceneSize: size)
+        let background = try #require(board.children.compactMap { $0 as? SKShapeNode }.first)
+        let rect = try #require(background.path).boundingBox
+        #expect(rect.size == size)
+        #expect(rect.origin == CGPoint(x: -size.width / 2, y: -size.height / 2))
+        #expect(background.lineWidth == 0)
+        #expect(background.strokeColor.cgColor.alpha == 0)
+    }
+
 }

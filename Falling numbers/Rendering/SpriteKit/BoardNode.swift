@@ -46,8 +46,8 @@ final class BoardNode: SKNode {
             lastRunID = state.runID
         }
 
-        let maxBoardWidth = sceneSize.width * 0.92
-        let maxBoardHeight = sceneSize.height * 0.96
+        let maxBoardWidth = sceneSize.width
+        let maxBoardHeight = sceneSize.height
         cellSize = min(maxBoardWidth / CGFloat(state.board.columns), maxBoardHeight / CGFloat(state.board.rows))
 
         boardSize = CGSize(
@@ -243,10 +243,10 @@ final class BoardNode: SKNode {
             height: boardSize.height
         )
 
-        boardBackgroundNode.path = CGPath(roundedRect: rect, cornerWidth: 14, cornerHeight: 14, transform: nil)
-        boardBackgroundNode.fillColor = NeonTheme.boardFill
-        boardBackgroundNode.strokeColor = NeonTheme.boardStroke
-        boardBackgroundNode.lineWidth = 1.2
+        boardBackgroundNode.path = CGPath(rect: rect, transform: nil)
+        boardBackgroundNode.fillColor = ArcadeTheme.boardFill
+        boardBackgroundNode.strokeColor = .clear
+        boardBackgroundNode.lineWidth = 0
     }
 
     private func drawGrid(board: Board) {
@@ -262,7 +262,7 @@ final class BoardNode: SKNode {
             path.move(to: CGPoint(x: x, y: originY))
             path.addLine(to: CGPoint(x: x, y: originY - boardSize.height))
             line.path = path
-            line.strokeColor = NeonTheme.gridLine
+            line.strokeColor = ArcadeTheme.gridLine
             line.lineWidth = 0.8
             gridNode.addChild(line)
         }
@@ -274,7 +274,7 @@ final class BoardNode: SKNode {
             path.move(to: CGPoint(x: originX, y: y))
             path.addLine(to: CGPoint(x: originX + boardSize.width, y: y))
             line.path = path
-            line.strokeColor = NeonTheme.gridLine
+            line.strokeColor = ArcadeTheme.gridLine
             line.lineWidth = 0.8
             gridNode.addChild(line)
         }
