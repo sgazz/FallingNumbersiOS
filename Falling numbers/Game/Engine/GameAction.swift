@@ -9,5 +9,6 @@ enum GameAction {
     case moveRight
     case softDrop
     case hardDrop
+    case advanceTime(TimeInterval)
     case tick
 }

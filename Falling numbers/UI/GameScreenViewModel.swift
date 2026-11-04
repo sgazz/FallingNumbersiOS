@@ -23,6 +23,8 @@ final class GameScreenViewModel: ObservableObject {
 
     private var engine: GameEngine
     private var timer: Timer?
+    private var lastTimerUptime: TimeInterval?
+    private var isCurrentRunEligibleForHighScore = true
     private var highScoreStore: HighScoreStoring
     private let settingsStore: SettingsStoring
     private let haptics: HapticsClient
@@ -31,7 +33,7 @@ final class GameScreenViewModel: ObservableObject {
     private(set) var timerStartCount = 0
     private var runStartingBest: Int
     var isNewBestForCurrentGameOver: Bool {
-        state.isGameOver && state.score > runStartingBest
+        isCurrentRunEligibleForHighScore && state.isGameOver && state.score > runStartingBest
     }
 
     var showsCascadeHUD: Bool {
@@ -119,6 +121,7 @@ final class GameScreenViewModel: ObservableObject {
 
     func newGame() {
         if settings.isSoundEnabled { audio.trigger(.buttonTap) }
+        isCurrentRunEligibleForHighScore = true
         engine.send(.newGame)
         syncFromEngine(previous: state)
         runStartingBest = highScore
@@ -128,11 +131,27 @@ final class GameScreenViewModel: ObservableObject {
 
     func setMode(_ mode: GameMode) {
         if settings.isSoundEnabled { audio.trigger(.buttonTap) }
+        isCurrentRunEligibleForHighScore = true
         engine.send(.setMode(mode))
         syncFromEngine(previous: state)
         runStartingBest = highScore
         didSetNewBestInRun = false
         showsStartOverlay = false
+    }
+
+    func playFromMenu(mode: GameMode) {
+        pausedByLifecycle = false
+        if state.gameMode != mode || state.isGameOver {
+            setMode(mode)
+        } else {
+            showsStartOverlay = false
+            if state.isPaused { togglePause() }
+        }
+    }
+
+    func pauseForMenu() {
+        pausedByLifecycle = false
+        if !state.isPaused, !state.isGameOver { togglePause() }
     }
 
     func startGameFromOverlay() {
@@ -188,6 +207,9 @@ final class GameScreenViewModel: ObservableObject {
     func resetHighScore() {
         highScoreStore.save(0, for: state.gameMode)
         highScore = 0
+        runStartingBest = 0
+        didSetNewBestInRun = false
+        isCurrentRunEligibleForHighScore = false
     }
 
     func appDidEnterBackground() {
@@ -217,7 +239,7 @@ final class GameScreenViewModel: ObservableObject {
             didSetNewBestInRun = false
         }
 
-        if state.score > highScore {
+        if isCurrentRunEligibleForHighScore, state.score > highScore {
             highScore = state.score
             highScoreStore.save(highScore, for: state.gameMode)
         }
@@ -246,7 +268,7 @@ final class GameScreenViewModel: ObservableObject {
             if !previous.isGameOver, state.isGameOver {
                 if settings.isHapticsEnabled { haptics.gameOver() }
                 if settings.isSoundEnabled { audio.trigger(.gameOver) }
-                didSetNewBestInRun = state.score > runStartingBest
+                didSetNewBestInRun = isCurrentRunEligibleForHighScore && state.score > runStartingBest
                 if didSetNewBestInRun, settings.isHapticsEnabled { haptics.newBest() }
             }
             if state.didPerfectClear {
@@ -286,11 +308,15 @@ final class GameScreenViewModel: ObservableObject {
 
     private func startTimer() {
         timerStartCount += 1
-        timer = Timer.scheduledTimer(withTimeInterval: state.currentTickInterval, repeats: true) { [weak self] _ in
+        lastTimerUptime = ProcessInfo.processInfo.systemUptime
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 let previous = self.state
-                self.engine.send(.tick)
+                let now = ProcessInfo.processInfo.systemUptime
+                guard let last = self.lastTimerUptime else { return }
+                self.lastTimerUptime = now
+                self.engine.send(.advanceTime(now - last))
                 self.syncFromEngine(previous: previous)
             }
         }
@@ -304,6 +330,7 @@ final class GameScreenViewModel: ObservableObject {
     private func stopTimer() {
         timer?.invalidate()
         timer = nil
+        lastTimerUptime = nil
     }
 
     private func restartTimerIfNeeded() {
@@ -312,15 +339,12 @@ final class GameScreenViewModel: ObservableObject {
             return
         }
 
-        guard let timer else {
+        guard timer != nil else {
             startTimer()
             return
         }
 
-        let epsilon = 0.0001
-        if abs(timer.timeInterval - state.currentTickInterval) > epsilon {
-            stopTimer()
-            startTimer()
-        }
+        // The clock measures elapsed time independently of the current fall speed.
+
     }
 }

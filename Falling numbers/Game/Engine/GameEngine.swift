@@ -9,6 +9,7 @@ struct GameEngine {
     private var gravitySystem: GravitySystem
     private let scoreSystem: ScoreSystem
     private let levelSystem: LevelSystem
+    private var fallTimeAccumulator: TimeInterval = 0
     private var pendingTargetCycleAdvance: Bool
 
     init(
@@ -97,11 +98,9 @@ struct GameEngine {
         case .hardDrop:
             hardDrop()
         case .tick:
-            recordActiveGameplayTime()
-            guard !endGameIfAnyColumnFilledToTop() else { return }
-            applyPendingTargetChangeIfSafe()
-            advanceTargetTimerIfNeeded()
-            stepDownOrLock()
+            advanceTime(by: state.currentTickInterval)
+        case .advanceTime(let elapsed):
+            advanceTime(by: elapsed)
         case .newGame, .setMode, .togglePause:
             break
         }
@@ -110,6 +109,7 @@ struct GameEngine {
     private mutating func resetGame() {
         state = GameState.initial(config: config, mode: state.gameMode)
         pendingTargetCycleAdvance = false
+        fallTimeAccumulator = 0
         configureInitialTargetForMode()
         updateProgressionState()
         applyStartingLayout()
@@ -215,35 +215,53 @@ struct GameEngine {
         applyPendingTargetChangeIfSafe()
     }
 
-    private mutating func stepDownOrLock() {
-        // Tick model: each tick attempts one downward step.
-        // If blocked, lock delay runs while grounded; lock happens only when delay expires.
-        guard var piece = state.activePiece else {
+    private mutating func advanceTime(by elapsed: TimeInterval) {
+        guard elapsed.isFinite, elapsed > 0 else { return }
+        recordActiveGameplayTime(elapsed: elapsed)
+        guard !endGameIfAnyColumnFilledToTop() else { return }
+        applyPendingTargetChangeIfSafe()
+        advanceTargetTimerIfNeeded(elapsed: elapsed)
+        guard let piece = state.activePiece else {
             spawnIfNeeded()
             return
         }
 
-        let nextPosition = piece.position.translated(rowDelta: 1, columnDelta: 0)
-        if state.board.canPlace(at: nextPosition) {
-            piece.position = nextPosition
-            state.activePiece = piece
-            cancelLockDelay()
+        if isGrounded(piece) {
+            fallTimeAccumulator = 0
+            if !state.isLockDelayActive {
+                startLockDelay(resetToFull: false)
+                return
+            }
+            consumeLockDelay(elapsed: elapsed)
             return
         }
 
-        if !state.isLockDelayActive {
-            startLockDelay(resetToFull: false)
-            return
+        cancelLockDelay()
+        fallTimeAccumulator += elapsed
+        while fallTimeAccumulator + 0.000_001 >= state.currentTickInterval {
+            fallTimeAccumulator = max(0, fallTimeAccumulator - state.currentTickInterval)
+            guard var falling = state.activePiece else { break }
+            falling.position = falling.position.translated(rowDelta: 1, columnDelta: 0)
+            state.activePiece = falling
+            if isGrounded(falling) {
+                startLockDelay(resetToFull: false)
+                let groundedTime = fallTimeAccumulator
+                fallTimeAccumulator = 0
+                consumeLockDelay(elapsed: groundedTime)
+                break
+            }
         }
+    }
 
-        state.lockDelayRemaining -= state.currentTickInterval
-        if state.lockDelayRemaining <= 0 {
-            cancelLockDelay()
-            let lockedPosition = lock(piece)
-            resolveAfterLock(for: piece, lockedPosition: lockedPosition)
-            spawnIfNeeded()
-            applyPendingTargetChangeIfSafe()
-        }
+    private mutating func consumeLockDelay(elapsed: TimeInterval) {
+        state.lockDelayRemaining = max(0, state.lockDelayRemaining - elapsed)
+        guard state.lockDelayRemaining <= 0.000_001,
+              let piece = state.activePiece else { return }
+        cancelLockDelay()
+        let lockedPosition = lock(piece)
+        resolveAfterLock(for: piece, lockedPosition: lockedPosition)
+        spawnIfNeeded()
+        applyPendingTargetChangeIfSafe()
     }
 
     private mutating func lock(_ piece: FallingPiece) -> GridPosition {
@@ -573,10 +591,10 @@ struct GameEngine {
         }
     }
 
-    private mutating func advanceTargetTimerIfNeeded() {
+    private mutating func advanceTargetTimerIfNeeded(elapsed: TimeInterval) {
         guard state.activePiece != nil else { return }
         let timerMultiplier = levelSystem.targetTimerDecrementMultiplier(level: state.level, mode: state.gameMode)
-        state.targetTimerRemaining -= state.currentTickInterval * timerMultiplier
+        state.targetTimerRemaining -= elapsed * timerMultiplier
         if state.targetTimerRemaining <= 0 {
             pendingTargetCycleAdvance = true
             state.targetTimerRemaining += config.targetChangeInterval
@@ -649,6 +667,7 @@ struct GameEngine {
         }
 
         state.activePiece = piece
+        fallTimeAccumulator = 0
         state.lastLockedPosition = nil
         if let value = piece.kind.numericValue {
             state.spawnedNumberHistory.append(value)
@@ -860,15 +879,15 @@ struct GameEngine {
         state.board.cells.allSatisfy { $0 == nil }
     }
 
-    private mutating func recordActiveGameplayTime() {
-        state.telemetry.activeGameplaySeconds += state.currentTickInterval
-        state.telemetry.timeSpentPerLevel[state.level, default: 0] += state.currentTickInterval
+    private mutating func recordActiveGameplayTime(elapsed: TimeInterval) {
+        state.telemetry.activeGameplaySeconds += elapsed
+        state.telemetry.timeSpentPerLevel[state.level, default: 0] += elapsed
         let occupancy = occupancyPercent()
         if occupancy >= 50 {
-            state.telemetry.timeAbove50Occupancy += state.currentTickInterval
+            state.telemetry.timeAbove50Occupancy += elapsed
         }
         if occupancy >= 70 {
-            state.telemetry.timeAbove70Occupancy += state.currentTickInterval
+            state.telemetry.timeAbove70Occupancy += elapsed
         }
         let topTouched = boardTouchesTopRows()
         if topTouched, !state.telemetry.wasTopRowsTouched {

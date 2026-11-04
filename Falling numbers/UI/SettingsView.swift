@@ -79,6 +79,9 @@ struct SettingsView: View {
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Reset high score")
+                            Text("Resets the record for the current mode. This game will no longer set a record; start a new game to set one.")
+                                .font(.footnote)
+                                .foregroundStyle(NeonTheme.textSecondary)
                         }
                     }
                     .padding(.horizontal, 14)

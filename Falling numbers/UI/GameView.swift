@@ -32,6 +32,7 @@ struct GameView: View {
         let accessibilitySummary: String
     }
 
+    @State private var sumBannerTask: Task<Void, Never>?
     @State private var sumLearnBanner: SumLearnBanner?
     @State private var sumBannerBottomOffset: CGFloat = 12
     @State private var boardOffsetY: CGFloat = 0
@@ -234,6 +235,11 @@ struct GameView: View {
         }
         .onChange(of: viewModel.boardShakeToken) { _, _ in
             hardDropFeedback()
+        }
+        .onDisappear {
+            sumBannerTask?.cancel()
+            sumBannerTask = nil
+            sumLearnBanner = nil
         }
         .sheet(isPresented: $isSettingsPresented) {
             SettingsView(viewModel: viewModel)
@@ -546,7 +552,14 @@ struct GameView: View {
         withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
             sumBannerBottomOffset = 14
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.15) {
+        sumBannerTask?.cancel()
+        sumBannerTask = Task { @MainActor in
+            do {
+                try await Task.sleep(for: .seconds(2.15))
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
             withAnimation(.easeIn(duration: 0.22)) {
                 sumLearnBanner = nil
                 sumBannerBottomOffset = 12
