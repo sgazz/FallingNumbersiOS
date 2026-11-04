@@ -8,6 +8,10 @@ final class Falling_numbersUITests: XCTestCase {
 
     func testPlayFromMenuResumesPausedRun() {
         let app = launchGame()
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Game Screen"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
         tap(app.buttons["Pause game"])
         tap(app.buttons["Main Menu"])
         tap(app.buttons["Play"])

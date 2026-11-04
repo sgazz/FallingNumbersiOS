@@ -38,18 +38,18 @@ The app pauses when inactive and resumes a run that was paused by the app lifecy
 
 - `Falling numbers/App` — app entry, scene lifecycle, menu/game navigation.
 - `Falling numbers/Game/Engine` — actions, turn orchestration, debug logging.
-- `Falling numbers/Game/Models` — board, tiles, configuration, game state, session statistics.
+- `Falling numbers/Game/Models` — board and grid positions (`Board.swift`), tile types (`Tiles.swift`), mode/configuration (`GameConfig.swift`), events (`GameEvents.swift`), game state, and session statistics.
 - `Falling numbers/Game/Rules` — line-sum detection.
 - `Falling numbers/Game/Systems` — gravity, spawning, score/progression, starting layout, power-ups, telemetry.
 - `Falling numbers/UI/Game` — game screen, view model, HUD, controls, overlays.
 - `Falling numbers/UI/Menu` — main menu and how-to-play screen.
 - `Falling numbers/UI/Settings` — sound, haptics, and record reset.
-- `Falling numbers/Rendering/SpriteKit` — state-only rendering, geometry, and tile animations.
-- `Falling numbers/Audio` — feedback interfaces, UIKit haptics, generated audio tones. Audio preparation and playback share a background serial queue; interruptions suspend effects, and audio service resets rebuild the players.
-- `Falling numbers/Persistence` — UserDefaults settings and per-mode high scores.
+- `Falling numbers/Rendering/SpriteKit` — renderer and scene (`SpriteKitRenderer.swift`), board geometry, and tile animations.
+- `Falling numbers/Audio` — feedback interfaces and UIKit haptics (`FeedbackClients.swift`), plus generated audio tones (`UIKitAudioClient.swift`). Audio preparation and playback share a background serial queue; interruptions suspend effects, and audio service resets rebuild the players.
+- `Falling numbers/Persistence` — UserDefaults settings and per-mode high scores in `UserDefaultsStores.swift`.
 - `Falling numbers/Theme` — shared visual constants.
 - `Falling numbersTests` — focused rule, engine, timing, spawning, progression, view model, rendering, and regression suites; shared doubles in `Support`.
-- `Falling numbersUITests` — navigation, settings, and launch checks.
+- `Falling numbersUITests` — navigation and settings flows, each starting with app launch; a game-screen screenshot is attached to the menu/resume test.
 - `docs` — static marketing, support, and privacy pages.
 
 The engine has no dependency on SpriteKit or SwiftUI. Rendering mirrors engine state and does not mutate gameplay. Tiles keep stable identities through locking, gravity, and reorder, so equal numbers do not exchange animations. Board equality compares contents; rendering signatures also include tile and run identities. The app clock sends elapsed monotonic time independently of the fall interval, so the configured lock delay does not change with falling speed. Tests can use `.tick` to advance by one fall interval or `.advanceTime(seconds)` for precise timing.

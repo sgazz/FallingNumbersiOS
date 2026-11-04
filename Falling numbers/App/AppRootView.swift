@@ -1,8 +1,13 @@
 import SwiftUI
 
 struct AppRootView: View {
+    private enum Flow {
+        case menu
+        case game
+    }
+
     @ObservedObject var viewModel: GameScreenViewModel
-    @State private var flow: AppFlowState = .menu
+    @State private var flow: Flow = .menu
 
     var body: some View {
         ZStack {
