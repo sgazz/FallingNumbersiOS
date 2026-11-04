@@ -228,14 +228,6 @@ final class BoardNode: SKNode {
 #endif
     }
 
-    private func neededPositionSet(state: GameState) -> Set<GridPosition> {
-        var needed = Set(state.board.allOccupiedPositions())
-        if let active = state.activePiece {
-            needed.insert(active.position)
-        }
-        return needed
-    }
-
     // Power-up animation hooks for v1 integration points.
     func playRowClearSweep(row: Int) {
         guard row >= 0 else { return }
