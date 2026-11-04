@@ -58,16 +58,26 @@ struct HowToPlayView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
 
+                        infoCard(title: "Game Modes") {
+                            bullet("Beginner: a 7-column, 15-row board with gradual difficulty and automatic chain reactions.")
+                            bullet("Expert: a 10-column, 20-row board with faster falling, targets from 5 to 20, and one clear pass per tile.")
+                            bullet("Make straight, connected lines of at least two numbers. Diagonal and L-shaped groups do not count.")
+                        }
+
                         infoCard(title: "Controls") {
                             controlRow(icon: "arrow.left.and.right", text: "Swipe left or right to move")
                             controlRow(icon: "arrow.down", text: "Swipe down to drop faster")
                             controlRow(icon: "hand.tap", text: "Double tap for hard drop")
+                            controlRow(icon: "hand.point.up.left", text: "Tap either side to move, or the lower center to soft drop")
                         }
 
                         infoCard(title: "Special Gameplay") {
-                            bullet("Cascade: Chain reactions give bonus points!")
+                            bullet("Beginner cascades: Chain reactions give bonus points!")
                             bullet("Perfect Clear: Clear the whole board for a big reward!")
-                            bullet("Special blocks can clear rows and columns.")
+                            bullet("↔ Row Clear removes its landing row.")
+                            bullet("↕ Column Clear removes its landing column.")
+                            bullet("⟳ Reorder sorts the numbers across occupied cells, starting at the bottom. It does not trigger automatic clears.")
+                            bullet("Special tiles appear from level 6 in Beginner and level 3 in Expert.")
                         }
                     }
                     .padding(.horizontal, 14)

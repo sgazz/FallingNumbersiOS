@@ -1,72 +1,73 @@
 # Fall, Number... Fall!
 
-Native iOS puzzle game built with SwiftUI + SpriteKit.
+Native iOS addition puzzle built with SwiftUI and SpriteKit. Gameplay works offline, without accounts, ads, or purchases.
 
-## Overview
+## Rules and modes
 
-`Fall, Number... Fall!` is a falling-number puzzle game inspired by falling-block classics.
-Instead of geometric pieces, single number tiles (`1...9`) fall into a `10 x 20` board.
+Single number tiles fall into the board. After a number locks, the engine searches for contiguous horizontal or vertical lines of at least two numbers whose sum equals the current target. Diagonal, L-shaped, and disconnected groups do not match.
 
-After a tile locks, the game searches for orthogonally connected groups whose sum equals the current target number.
-Matching groups are cleared, gravity collapses the board, and chain reactions can occur.
+The first clear must include the newly locked tile. When several lines qualify, the engine selects the longest, then prefers horizontal lines, then uses a stable position-based tie-break. Cleared tiles disappear and gravity collapses each column.
 
-## Tech Stack
+| Mode | Board (columns × rows) | Behavior |
+| --- | --- | --- |
+| Beginner | 7 × 15 | Small starting layout, gradual number/target progression, automatic cascades capped at six clear passes per lock. |
+| Expert | 10 × 20 | Faster falling, numbers 1–9, random targets 5–20, fixed center spawn, one clear pass per lock. |
 
-- Swift (pure game logic)
-- SwiftUI (app UI / HUD / overlays)
-- SpriteKit (board + tile rendering)
-- UserDefaults (high score persistence)
+The target changes on a timer; the timer runs faster at higher difficulty. Target changes wait while a tile is in its lock delay. Any settled tile in the top row ends the game after the current lock is resolved.
 
-## Project Structure
+Special tiles become available from level 6 in Beginner and level 3 in Expert:
 
-- `Falling numbers/App` - app entry
-- `Falling numbers/Game` - engine, models, rules, systems
-- `Falling numbers/Rendering/SpriteKit` - renderer and scene nodes
-- `Falling numbers/UI` - SwiftUI screens + view model
-- `Falling numbers/Theme` - visual constants
-- `Falling numbers/Audio` - haptics/audio client interfaces
-- `Falling numbers/Persistence` - high score store
-- `Falling numbersTests` - focused gameplay tests
+- **↔ Row Clear:** removes its landing row, then applies gravity and resolves matches.
+- **↕ Column Clear:** removes its landing column, then applies gravity and resolves matches.
+- **⟳ Reorder:** sorts existing number tiles across occupied cells, starting from the bottom row. It does not automatically resolve matches.
 
-## Current MVP Features
-
-- 10x20 board
-- Single falling number tile
-- Move left/right, soft drop, hard drop
-- Automatic falling tick
-- Collision + lock
-- Combination detection for connected subsets (not only whole components)
-- Deterministic clear resolution (largest-group-first, stable tie-break)
-- Gravity + chain reactions
-- Score, combo, level, target, high score
-- Pause / resume / game over + new game
-- Next-piece preview
-- Onboarding helper text
-- Haptic feedback hooks + UIKit haptics implementation
-- Audio placeholder architecture (`AudioClient`, `SoundEvent`)
+Scores include placement points, line length and direction bonuses, Beginner cascade bonuses, an Expert clear bonus, and perfect-clear rewards. High scores are stored separately for each mode. Resetting a record excludes the current run from setting another record until a new game starts.
 
 ## Controls
 
-- Buttons: Left / Down / Drop / Right / Pause
-- Gestures:
-  - Swipe left: move left
-  - Swipe right: move right
-  - Swipe down: soft drop / hard drop (larger downward swipe)
+- Swipe left or right, or tap the corresponding side of the board, to move one column.
+- Swipe down briefly, or tap the lower center, for a soft drop.
+- Swipe down farther, or double-tap the board, for a hard drop.
+- Tap Pause for Resume, Settings, New Game, and Main Menu.
+- Play from the menu resumes an unfinished run in the same mode. Selecting another mode starts a new run.
+- VoiceOver adds visible buttons for Left, Down, Drop, and Right.
 
-## Build
+The app pauses when inactive and resumes a run that was paused by the app lifecycle. A manually paused run remains paused.
+
+## Source layout
+
+- `Falling numbers/App` — app entry, scene lifecycle, menu/game navigation.
+- `Falling numbers/Game/Engine` — actions, turn orchestration, debug logging.
+- `Falling numbers/Game/Models` — board, tiles, configuration, game state, session statistics.
+- `Falling numbers/Game/Rules` — line-sum detection.
+- `Falling numbers/Game/Systems` — gravity, spawning, score/progression, starting layout, power-ups, telemetry.
+- `Falling numbers/UI/Game` — game screen, view model, HUD, controls, overlays.
+- `Falling numbers/UI/Menu` — main menu and how-to-play screen.
+- `Falling numbers/UI/Settings` — sound, haptics, and record reset.
+- `Falling numbers/Rendering/SpriteKit` — state-only rendering, geometry, and tile animations.
+- `Falling numbers/Audio` — feedback interfaces, UIKit haptics, generated audio tones. Audio preparation and playback share a background serial queue.
+- `Falling numbers/Persistence` — UserDefaults settings and per-mode high scores.
+- `Falling numbers/Theme` — shared visual constants.
+- `Falling numbersTests` — focused rule, engine, timing, spawning, progression, view model, rendering, and regression suites; shared doubles in `Support`.
+- `Falling numbersUITests` — navigation, settings, and launch checks.
+- `docs` — static marketing, support, and privacy pages.
+
+The engine has no dependency on SpriteKit or SwiftUI. Rendering mirrors engine state and does not mutate gameplay. The app clock sends elapsed monotonic time independently of the fall interval, so the configured lock delay does not change with falling speed. Tests can use `.tick` to advance by one fall interval or `.advanceTime(seconds)` for precise timing.
+
+Xcode uses filesystem-synchronized groups: Swift files added within the app or test folders are discovered automatically.
+
+## Build and validation
+
+Open `Falling numbers.xcodeproj`, select the `Falling numbers` scheme, and choose an installed iOS simulator. For a physical device, configure your signing team.
 
 ```bash
 xcodebuild -project "Falling numbers.xcodeproj" -scheme "Falling numbers" -destination 'generic/platform=iOS' build
 ```
 
-## Test
+Run unit tests with an installed simulator destination:
 
 ```bash
-xcodebuild -project "Falling numbers.xcodeproj" -scheme "Falling numbers" -destination 'platform=iOS Simulator,name=iPhone 17' -only-testing:'Falling numbersTests' test
+xcodebuild -project "Falling numbers.xcodeproj" -scheme "Falling numbers" -destination 'platform=iOS Simulator,name=iPhone 17' -parallel-testing-enabled NO -only-testing:'Falling numbersTests' test
 ```
 
-## Notes
-
-- Game rules are implemented in pure Swift engine code, independent from SpriteKit rendering.
-- Rendering layer does not mutate game state.
-- No ads, accounts, multiplayer, IAP, or online systems in MVP.
+For interface checks, replace the final test selection with `-only-testing:'Falling numbersUITests/Falling_numbersUITests'`. Confirm audio and haptics on a physical iPhone as well; the simulator may emit internal audio hardware diagnostics.
