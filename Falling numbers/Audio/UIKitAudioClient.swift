@@ -6,11 +6,36 @@ nonisolated final class UIKitAudioClient: AudioClient, @unchecked Sendable {
     private let queue = DispatchQueue(label: "FallingNumbers.AudioClient")
     // Accessed only on queue, including construction and playback.
     private var playback: AudioPlayback?
+    private var observers: [NSObjectProtocol] = []
 
     init() {
         queue.async { [weak self] in
             self?.playback = AudioPlayback()
         }
+        observeAudioLifecycle()
+    }
+
+    deinit {
+        for observer in observers { NotificationCenter.default.removeObserver(observer) }
+    }
+
+    private func observeAudioLifecycle() {
+        let center = NotificationCenter.default
+        observers.append(center.addObserver(forName: AVAudioSession.interruptionNotification,
+                                            object: nil, queue: nil) { [weak self] notification in
+            guard let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt else { return }
+            self?.queue.async { [weak self] in
+                self?.playback?.handleInterruption(type: rawType)
+            }
+        })
+        observers.append(center.addObserver(forName: AVAudioSession.mediaServicesWereLostNotification,
+                                            object: nil, queue: nil) { [weak self] _ in
+            self?.queue.async { [weak self] in self?.playback?.suspend() }
+        })
+        observers.append(center.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification,
+                                            object: nil, queue: nil) { [weak self] _ in
+            self?.queue.async { [weak self] in self?.playback = AudioPlayback() }
+        })
     }
 
     func trigger(_ event: SoundEvent) {
@@ -23,6 +48,8 @@ nonisolated final class UIKitAudioClient: AudioClient, @unchecked Sendable {
 // Audio work must not inherit the project's default MainActor isolation.
 nonisolated private final class AudioPlayback {
     private let session = AVAudioSession.sharedInstance()
+    private var isSessionActive = false
+    private var isInterrupted = false
 
     private let movePlayer: TonePlayer
     private let lockPlayer: TonePlayer
@@ -43,6 +70,7 @@ nonisolated private final class AudioPlayback {
         do {
             try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
             try session.setActive(true, options: [])
+            isSessionActive = true
         } catch {
 #if DEBUG
             print("[AUDIO] Failed to configure AVAudioSession: \(error)")
@@ -64,7 +92,48 @@ nonisolated private final class AudioPlayback {
         buttonTapPlayer = TonePlayer(frequency: 500, duration: 0.05, volume: 0.10)
     }
 
+    private var players: [TonePlayer] {
+        [movePlayer, lockPlayer, clearPlayer, cascadeLowPlayer, cascadeMidPlayer,
+         cascadeHighPlayer, perfectClearPlayer, hardDropPlayer, rowClearPlayer,
+         columnClearPlayer, reorderPlayer, gameOverPlayer, buttonTapPlayer]
+    }
+
+    func suspend() {
+        isInterrupted = true
+        isSessionActive = false
+        for player in players { player.stop() }
+    }
+
+    func handleInterruption(type: UInt) {
+        switch AVAudioSession.InterruptionType(rawValue: type) {
+        case .began:
+            suspend()
+        case .ended:
+            isInterrupted = false
+            // One-shot effects are never replayed after a call or Siri interruption.
+            // Reactivate only for a subsequent gameplay event.
+        default:
+            break
+        }
+    }
+
+    private func activateIfNeeded() -> Bool {
+        guard !isInterrupted else { return false }
+        if isSessionActive { return true }
+        do {
+            try session.setActive(true)
+            isSessionActive = true
+            return true
+        } catch {
+#if DEBUG
+            print("[AUDIO] Failed to reactivate AVAudioSession: \(error)")
+#endif
+            return false
+        }
+    }
+
     func trigger(_ event: SoundEvent) {
+        guard activateIfNeeded() else { return }
         switch event {
         case .move:
             movePlayer.play()
@@ -119,6 +188,11 @@ nonisolated private final class TonePlayer {
         guard let player else { return }
         player.currentTime = 0
         player.play()
+    }
+
+    func stop() {
+        player?.stop()
+        player?.currentTime = 0
     }
 
     private static func makeToneData(frequency: Double, duration: Double) -> Data? {
