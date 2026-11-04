@@ -1,10 +1,5 @@
 import Foundation
 
-enum MatchDirection: String {
-    case horizontal = "H"
-    case vertical = "V"
-}
-
 enum GameDebugLogger {
 #if DEBUG
     private static let prefix = "[GAME-DEBUG]"

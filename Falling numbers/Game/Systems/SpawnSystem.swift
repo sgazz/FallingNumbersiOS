@@ -142,24 +142,6 @@ struct SpawnSystem {
         return nil
     }
 
-    func expertBurstLength(pressureTier: Int, occupancyPercent: Int) -> Int {
-        guard pressureTier > 0 else { return 1 }
-        let roll = Int.random(in: 0..<100)
-        if pressureTier >= 2 {
-            if occupancyPercent < 30 {
-                if roll < 12 { return 3 }
-                if roll < 50 { return 2 }
-                return 1
-            } else {
-                if roll < 8 { return 3 }
-                if roll < 38 { return 2 }
-                return 1
-            }
-        }
-        if roll < 28 { return 2 }
-        return 1
-    }
-
     private func spawnWeights(columns: Int, mode: GameMode, pressureTier: Int) -> [Int] {
         if columns == 10 {
             if mode == .expert, pressureTier >= 2 {

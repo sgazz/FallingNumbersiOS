@@ -66,10 +66,10 @@ final class TileNode: SKNode {
         shadowNode.position = CGPoint(x: 0, y: -size * 0.05)
 
         shapeNode.path = roundedPath
-        shapeNode.fillColor = NeonTheme.tileColor(for: kind)
-        shapeNode.strokeColor = NeonTheme.tileStroke
+        shapeNode.fillColor = ArcadeTheme.tileColor(for: kind)
+        shapeNode.strokeColor = ArcadeTheme.tileStroke
         shapeNode.lineWidth = max(1.2, size * 0.036)
-        shapeNode.glowWidth = isActive ? size * 0.045 : size * 0.03
+        shapeNode.glowWidth = 0
 
         if activeChanged {
             removeAction(forKey: "activeScale")

@@ -1,6 +1,7 @@
 import Foundation
 
 struct GameState {
+    let runID: UUID
     var gameMode: GameMode
     var board: Board
     var activePiece: FallingPiece?
@@ -35,8 +36,6 @@ struct GameState {
     var sumClearEventToken: Int
     var expertPressureRampActive: Bool
     var expertSpawnPressureTier: Int
-    var expertBurstRemaining: Int
-    var expertBurstColumn: Int?
     var spawnedNumberHistory: [Int]
     var telemetry: SessionTelemetry
     var currentTickInterval: TimeInterval
@@ -49,6 +48,7 @@ struct GameState {
 
     static func initial(config: GameConfig, mode: GameMode) -> GameState {
         GameState(
+            runID: UUID(),
             gameMode: mode,
             board: Board(rows: config.rows(for: mode), columns: config.columns(for: mode)),
             activePiece: nil,
@@ -83,8 +83,6 @@ struct GameState {
             sumClearEventToken: 0,
             expertPressureRampActive: false,
             expertSpawnPressureTier: 0,
-            expertBurstRemaining: 0,
-            expertBurstColumn: nil,
             spawnedNumberHistory: [],
             telemetry: .initial,
             currentTickInterval: config.tickInterval,

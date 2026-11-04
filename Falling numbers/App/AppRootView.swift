@@ -1,18 +1,20 @@
 import SwiftUI
 
 struct AppRootView: View {
+    private enum Flow {
+        case menu
+        case game
+    }
+
     @ObservedObject var viewModel: GameScreenViewModel
-    @State private var flow: AppFlowState = .menu
+    @State private var flow: Flow = .menu
 
     var body: some View {
         ZStack {
             switch flow {
             case .menu:
                 MainMenuView(viewModel: viewModel) { mode in
-                    if viewModel.state.gameMode != mode || viewModel.state.isGameOver {
-                        viewModel.setMode(mode)
-                    }
-                    viewModel.startGameFromOverlay()
+                    viewModel.playFromMenu(mode: mode)
                     withAnimation(.easeInOut(duration: 0.24)) {
                         flow = .game
                     }
@@ -22,6 +24,7 @@ struct AppRootView: View {
                 GameView(
                     viewModel: viewModel,
                     onMainMenu: {
+                        viewModel.pauseForMenu()
                         withAnimation(.easeInOut(duration: 0.24)) {
                             flow = .menu
                         }

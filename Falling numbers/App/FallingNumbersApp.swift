@@ -8,6 +8,7 @@ struct FallingNumbersApp: App {
     var body: some Scene {
         WindowGroup {
             AppRootView(viewModel: viewModel)
+                .preferredColorScheme(.light)
                 .onChange(of: scenePhase) { _, phase in
                     switch phase {
                     case .background, .inactive:

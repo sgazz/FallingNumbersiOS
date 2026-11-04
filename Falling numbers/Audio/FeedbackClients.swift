@@ -1,12 +1,35 @@
 import Foundation
 import UIKit
 
+protocol AudioClient {
+    func trigger(_ event: SoundEvent)
+}
+
+enum SoundEvent: Equatable {
+    case move
+    case lock
+    case clear
+    case cascade(level: Int)
+    case perfectClear
+    case hardDrop
+    case rowClear
+    case columnClear
+    case reorder
+    case gameOver
+    case buttonTap
+}
+
+struct NoopAudioClient: AudioClient {
+    func trigger(_ event: SoundEvent) {}
+}
+
 protocol HapticsClient {
     func moved()
     func pieceLocked()
     func cleared(combo: Int)
     func perfectClear()
     func gameOver()
+    func warning()
     func newBest()
     func powerUpActivated(_ type: PowerUpType)
 }
@@ -17,6 +40,7 @@ struct NoopHapticsClient: HapticsClient {
     func cleared(combo: Int) {}
     func perfectClear() {}
     func gameOver() {}
+    func warning() {}
     func newBest() {}
     func powerUpActivated(_ type: PowerUpType) {}
 }
@@ -65,6 +89,11 @@ final class UIKitHapticsClient: HapticsClient {
     }
 
     func gameOver() {
+        gameOverGenerator.notificationOccurred(.warning)
+        gameOverGenerator.prepare()
+    }
+
+    func warning() {
         gameOverGenerator.notificationOccurred(.warning)
         gameOverGenerator.prepare()
     }

@@ -13,6 +13,7 @@ final class GameScreenViewModel: ObservableObject {
     @Published private(set) var boardShakeToken: Int = 0
     @Published private(set) var comboPulseToken: Int = 0
     @Published private(set) var targetPulseToken: Int = 0
+    @Published private(set) var targetChangeToken: Int = 0
     @Published private(set) var perfectClearToken: Int = 0
     @Published private(set) var powerUpPulseToken: Int = 0
     @Published private(set) var lastPowerUpLabel: String?
@@ -23,6 +24,8 @@ final class GameScreenViewModel: ObservableObject {
 
     private var engine: GameEngine
     private var timer: Timer?
+    private var lastTimerUptime: TimeInterval?
+    private var isCurrentRunEligibleForHighScore = true
     private var highScoreStore: HighScoreStoring
     private let settingsStore: SettingsStoring
     private let haptics: HapticsClient
@@ -31,7 +34,16 @@ final class GameScreenViewModel: ObservableObject {
     private(set) var timerStartCount = 0
     private var runStartingBest: Int
     var isNewBestForCurrentGameOver: Bool {
-        state.isGameOver && state.score > runStartingBest
+        isCurrentRunEligibleForHighScore && state.isGameOver && state.score > runStartingBest
+    }
+
+    var targetTimerProgress: Double {
+        guard engine.config.targetChangeInterval > 0 else { return 0 }
+        return min(1, max(0, state.targetTimerRemaining / engine.config.targetChangeInterval))
+    }
+
+    var levelProgress: Double {
+        LevelSystem().progressToNextLevel(score: state.score)
     }
 
     var showsCascadeHUD: Bool {
@@ -119,6 +131,7 @@ final class GameScreenViewModel: ObservableObject {
 
     func newGame() {
         if settings.isSoundEnabled { audio.trigger(.buttonTap) }
+        isCurrentRunEligibleForHighScore = true
         engine.send(.newGame)
         syncFromEngine(previous: state)
         runStartingBest = highScore
@@ -128,11 +141,27 @@ final class GameScreenViewModel: ObservableObject {
 
     func setMode(_ mode: GameMode) {
         if settings.isSoundEnabled { audio.trigger(.buttonTap) }
+        isCurrentRunEligibleForHighScore = true
         engine.send(.setMode(mode))
         syncFromEngine(previous: state)
         runStartingBest = highScore
         didSetNewBestInRun = false
         showsStartOverlay = false
+    }
+
+    func playFromMenu(mode: GameMode) {
+        pausedByLifecycle = false
+        if state.gameMode != mode || state.isGameOver {
+            setMode(mode)
+        } else {
+            showsStartOverlay = false
+            if state.isPaused { togglePause() }
+        }
+    }
+
+    func pauseForMenu() {
+        pausedByLifecycle = false
+        if !state.isPaused, !state.isGameOver { togglePause() }
     }
 
     func startGameFromOverlay() {
@@ -185,9 +214,18 @@ final class GameScreenViewModel: ObservableObject {
         settingsStore.save(settings)
     }
 
+    func setColorBlindModeEnabled(_ enabled: Bool) {
+        settings.isColorBlindModeEnabled = enabled
+        settingsStore.save(settings)
+        objectWillChange.send()
+    }
+
     func resetHighScore() {
         highScoreStore.save(0, for: state.gameMode)
         highScore = 0
+        runStartingBest = 0
+        didSetNewBestInRun = false
+        isCurrentRunEligibleForHighScore = false
     }
 
     func appDidEnterBackground() {
@@ -217,17 +255,23 @@ final class GameScreenViewModel: ObservableObject {
             didSetNewBestInRun = false
         }
 
-        if state.score > highScore {
+        if isCurrentRunEligibleForHighScore, state.score > highScore {
             highScore = state.score
             highScoreStore.save(highScore, for: state.gameMode)
         }
 
         if let previous {
-            if previous.activePiece != nil, state.activePiece == nil {
+            let previousOccupancy = occupancyRatio(previous)
+            let currentOccupancy = occupancyRatio(state)
+            if previousOccupancy < 0.70, currentOccupancy >= 0.70,
+               settings.isHapticsEnabled {
+                haptics.warning()
+            }
+            if state.telemetry.totalLocks > previous.telemetry.totalLocks {
                 if settings.isHapticsEnabled { haptics.pieceLocked() }
                 if settings.isSoundEnabled { audio.trigger(.lock) }
             }
-            if state.cascadeCount > previous.cascadeCount, state.cascadeCount > 0 {
+            if state.linesCleared > previous.linesCleared {
                 if state.gameMode == .beginner {
                     if settings.isHapticsEnabled { haptics.cleared(combo: state.cascadeCount) }
                     if settings.isSoundEnabled {
@@ -237,16 +281,19 @@ final class GameScreenViewModel: ObservableObject {
                         }
                     }
                     comboPulseToken &+= 1
-                } else if previous.cascadeCount == 0 {
+                } else {
                     if settings.isHapticsEnabled { haptics.cleared(combo: 1) }
                     if settings.isSoundEnabled { audio.trigger(.clear) }
                 }
                 targetPulseToken &+= 1
             }
+            if state.didTargetChange {
+                targetChangeToken &+= 1
+            }
             if !previous.isGameOver, state.isGameOver {
                 if settings.isHapticsEnabled { haptics.gameOver() }
                 if settings.isSoundEnabled { audio.trigger(.gameOver) }
-                didSetNewBestInRun = state.score > runStartingBest
+                didSetNewBestInRun = isCurrentRunEligibleForHighScore && state.score > runStartingBest
                 if didSetNewBestInRun, settings.isHapticsEnabled { haptics.newBest() }
             }
             if state.didPerfectClear {
@@ -284,13 +331,22 @@ final class GameScreenViewModel: ObservableObject {
         restartTimerIfNeeded()
     }
 
+    private func occupancyRatio(_ state: GameState) -> Double {
+        let capacity = max(1, state.board.rows * state.board.columns)
+        return Double(state.board.allOccupiedPositions().count) / Double(capacity)
+    }
+
     private func startTimer() {
         timerStartCount += 1
-        timer = Timer.scheduledTimer(withTimeInterval: state.currentTickInterval, repeats: true) { [weak self] _ in
+        lastTimerUptime = ProcessInfo.processInfo.systemUptime
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 let previous = self.state
-                self.engine.send(.tick)
+                let now = ProcessInfo.processInfo.systemUptime
+                guard let last = self.lastTimerUptime else { return }
+                self.lastTimerUptime = now
+                self.engine.send(.advanceTime(now - last))
                 self.syncFromEngine(previous: previous)
             }
         }
@@ -304,6 +360,7 @@ final class GameScreenViewModel: ObservableObject {
     private func stopTimer() {
         timer?.invalidate()
         timer = nil
+        lastTimerUptime = nil
     }
 
     private func restartTimerIfNeeded() {
@@ -312,15 +369,12 @@ final class GameScreenViewModel: ObservableObject {
             return
         }
 
-        guard let timer else {
+        guard timer != nil else {
             startTimer()
             return
         }
 
-        let epsilon = 0.0001
-        if abs(timer.timeInterval - state.currentTickInterval) > epsilon {
-            stopTimer()
-            startTimer()
-        }
+        // The clock measures elapsed time independently of the current fall speed.
+
     }
 }

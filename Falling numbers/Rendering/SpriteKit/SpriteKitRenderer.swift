@@ -44,13 +44,48 @@ struct SpriteKitRenderer: UIViewRepresentable {
                     return lhs.column < rhs.column
                 }
                 .map { position in
-                    let kind = state.board.cell(at: position)?.kind
-                    return "\(position.row):\(position.column):\(kind?.displayText ?? ".")"
+                    let cell = state.board.cell(at: position)
+                    return "\(cell?.id.uuidString ?? "none"):\(position.row):\(position.column):\(cell?.kind.displayText ?? ".")"
                 }
                 .joined(separator: ",")
 
-            let active = state.activePiece.map { "\($0.position.row):\($0.position.column):\($0.kind.displayText)" } ?? "none"
-            return "\(occupied)|a:\(active)|lvl:\(state.level)|t:\(state.targetNumber)|p:\(state.isPaused)|g:\(state.isGameOver)|pu:\(state.powerUpEventToken)"
+            let active = state.activePiece.map { "\($0.id.uuidString):\($0.position.row):\($0.position.column):\($0.kind.displayText)" } ?? "none"
+            let colorBlindMode = UserDefaults.standard.bool(forKey: "falling_numbers_color_blind_enabled")
+            return "\(state.runID.uuidString)|\(occupied)|a:\(active)|lvl:\(state.level)|t:\(state.targetNumber)|p:\(state.isPaused)|g:\(state.isGameOver)|pu:\(state.powerUpEventToken)|cb:\(colorBlindMode)"
+        }
+    }
+}
+
+final class GameScene: SKScene {
+    private var boardNode: BoardNode?
+    private var latestState: GameState?
+
+    override func didMove(to view: SKView) {
+        backgroundColor = .clear
+        scaleMode = .resizeFill
+
+        if boardNode == nil {
+            let node = BoardNode()
+            addChild(node)
+            boardNode = node
+        }
+        refreshBoardGeometry()
+    }
+
+    override func didChangeSize(_ oldSize: CGSize) {
+        super.didChangeSize(oldSize)
+        refreshBoardGeometry()
+    }
+
+    func render(state: GameState) {
+        latestState = state
+        refreshBoardGeometry()
+    }
+
+    private func refreshBoardGeometry() {
+        boardNode?.position = CGPoint(x: size.width * 0.5, y: size.height * 0.5)
+        if let latestState {
+            boardNode?.render(state: latestState, sceneSize: size)
         }
     }
 }

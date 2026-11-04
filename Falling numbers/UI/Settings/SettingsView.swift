@@ -7,20 +7,8 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                NeonTheme.backgroundGradient
+                ArcadeTheme.backgroundGradient
                     .ignoresSafeArea()
-
-                Circle()
-                    .fill(NeonTheme.accentSecondary.opacity(0.18))
-                    .frame(width: 280, height: 280)
-                    .blur(radius: 24)
-                    .offset(x: -120, y: -220)
-
-                Circle()
-                    .fill(NeonTheme.accentPrimary.opacity(0.15))
-                    .frame(width: 240, height: 240)
-                    .blur(radius: 20)
-                    .offset(x: 120, y: 240)
 
                 ScrollView {
                     VStack(spacing: 12) {
@@ -29,20 +17,34 @@ struct SettingsView: View {
                                 get: { viewModel.settings.isSoundEnabled },
                                 set: { viewModel.setSoundEnabled($0) }
                             ))
-                            .tint(NeonTheme.accentPrimary)
-                            .foregroundStyle(NeonTheme.textPrimary)
+                            .tint(ArcadeTheme.accentPrimary)
+                            .foregroundStyle(ArcadeTheme.textPrimary)
                             .accessibilityLabel("Sound")
 
                             Divider()
-                                .overlay(NeonTheme.chipStroke.opacity(0.8))
+                                .overlay(ArcadeTheme.chipStroke.opacity(0.8))
 
                             Toggle("Haptics", isOn: Binding(
                                 get: { viewModel.settings.isHapticsEnabled },
                                 set: { viewModel.setHapticsEnabled($0) }
                             ))
-                            .tint(NeonTheme.accentSecondary)
-                            .foregroundStyle(NeonTheme.textPrimary)
+                            .tint(ArcadeTheme.accentSecondary)
+                            .foregroundStyle(ArcadeTheme.textPrimary)
                             .accessibilityLabel("Haptics")
+
+                            Divider()
+                                .overlay(ArcadeTheme.chipStroke.opacity(0.8))
+
+                            Toggle("Color Blind Mode", isOn: Binding(
+                                get: { viewModel.settings.isColorBlindModeEnabled },
+                                set: { viewModel.setColorBlindModeEnabled($0) }
+                            ))
+                            .tint(ArcadeTheme.accentPrimary)
+                            .foregroundStyle(ArcadeTheme.textPrimary)
+                            .accessibilityLabel("Color Blind Mode")
+                            Text("Uses a high-contrast palette designed to remain distinguishable without relying on color alone.")
+                                .font(.footnote)
+                                .foregroundStyle(ArcadeTheme.textSecondary)
                         }
 
                         settingsCard(title: "Data") {
@@ -56,20 +58,13 @@ struct SettingsView: View {
                                         .font(.subheadline.weight(.semibold))
                                     Spacer()
                                 }
-                                .foregroundStyle(NeonTheme.textPrimary)
+                                .foregroundStyle(ArcadeTheme.textPrimary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 10)
                                 .background(
                                     RoundedRectangle(cornerRadius: 10)
                                         .fill(
-                                            LinearGradient(
-                                                colors: [
-                                                    Color(red: 0.99, green: 0.74, blue: 0.31),
-                                                    Color(red: 0.98, green: 0.55, blue: 0.27)
-                                                ],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
+                                            ArcadeTheme.accentSecondary.opacity(0.10)
                                         )
                                 )
                                 .overlay(
@@ -79,6 +74,9 @@ struct SettingsView: View {
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Reset high score")
+                            Text("Resets the record for the current mode. This game will no longer set a record; start a new game to set one.")
+                                .font(.footnote)
+                                .foregroundStyle(ArcadeTheme.textSecondary)
                         }
                     }
                     .padding(.horizontal, 14)
@@ -87,26 +85,26 @@ struct SettingsView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarColorScheme(.light, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Settings")
                         .font(.headline.weight(.semibold))
-                        .foregroundStyle(NeonTheme.textPrimary)
+                        .foregroundStyle(ArcadeTheme.textPrimary)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(NeonTheme.textPrimary)
+                        .foregroundStyle(ArcadeTheme.textPrimary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
                         .background(
                             Capsule()
-                                .fill(NeonTheme.chipFill)
+                                .fill(ArcadeTheme.chipFill)
                         )
                         .overlay(
                             Capsule()
-                                .stroke(NeonTheme.chipStroke, lineWidth: 0.8)
+                                .stroke(ArcadeTheme.chipStroke, lineWidth: 0.8)
                         )
                         .accessibilityLabel("Done")
                 }
@@ -119,18 +117,18 @@ struct SettingsView: View {
             Text(title)
                 .font(.caption.weight(.heavy))
                 .tracking(0.8)
-                .foregroundStyle(NeonTheme.textSecondary)
+                .foregroundStyle(ArcadeTheme.textSecondary)
 
             content()
         }
         .padding(14)
         .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(NeonTheme.panelFill)
+            RoundedRectangle(cornerRadius: 20)
+                .fill(ArcadeTheme.panelFill)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(NeonTheme.cardStroke, lineWidth: 1.0)
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(ArcadeTheme.cardStroke, lineWidth: 1.0)
         )
     }
 }
