@@ -78,6 +78,7 @@ final class RecordingHapticsClient: HapticsClient {
     func cleared(combo: Int) { clearCount += 1 }
     func perfectClear() {}
     func gameOver() {}
+    func warning() {}
     func newBest() {}
     func powerUpActivated(_ type: PowerUpType) {}
 }

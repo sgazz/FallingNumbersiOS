@@ -29,6 +29,7 @@ protocol HapticsClient {
     func cleared(combo: Int)
     func perfectClear()
     func gameOver()
+    func warning()
     func newBest()
     func powerUpActivated(_ type: PowerUpType)
 }
@@ -39,6 +40,7 @@ struct NoopHapticsClient: HapticsClient {
     func cleared(combo: Int) {}
     func perfectClear() {}
     func gameOver() {}
+    func warning() {}
     func newBest() {}
     func powerUpActivated(_ type: PowerUpType) {}
 }
@@ -87,6 +89,11 @@ final class UIKitHapticsClient: HapticsClient {
     }
 
     func gameOver() {
+        gameOverGenerator.notificationOccurred(.warning)
+        gameOverGenerator.prepare()
+    }
+
+    func warning() {
         gameOverGenerator.notificationOccurred(.warning)
         gameOverGenerator.prepare()
     }

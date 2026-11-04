@@ -255,6 +255,12 @@ final class GameScreenViewModel: ObservableObject {
         }
 
         if let previous {
+            let previousOccupancy = occupancyRatio(previous)
+            let currentOccupancy = occupancyRatio(state)
+            if previousOccupancy < 0.70, currentOccupancy >= 0.70,
+               settings.isHapticsEnabled {
+                haptics.warning()
+            }
             if state.telemetry.totalLocks > previous.telemetry.totalLocks {
                 if settings.isHapticsEnabled { haptics.pieceLocked() }
                 if settings.isSoundEnabled { audio.trigger(.lock) }
@@ -317,6 +323,11 @@ final class GameScreenViewModel: ObservableObject {
         }
 
         restartTimerIfNeeded()
+    }
+
+    private func occupancyRatio(_ state: GameState) -> Double {
+        let capacity = max(1, state.board.rows * state.board.columns)
+        return Double(state.board.allOccupiedPositions().count) / Double(capacity)
     }
 
     private func startTimer() {

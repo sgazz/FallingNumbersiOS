@@ -169,6 +169,10 @@ struct GameOverlays: View {
     @ViewBuilder
     private var gameOverOverlay: some View {
         VStack(spacing: 14) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 26, weight: .bold))
+                .foregroundStyle(ArcadeTheme.accentSecondary)
+                .accessibilityHidden(true)
             Text("Game Over")
                 .font(.title.bold())
                 .foregroundStyle(ArcadeTheme.textPrimary)
@@ -203,7 +207,12 @@ struct GameOverlays: View {
                     recapRow(title: "Highest Cascade", value: "×\(max(1, viewModel.state.highestCascade))")
                 }
                 recapRow(title: "Longest Line", value: "\(viewModel.state.longestLineCleared)")
-                recapRow(title: "Game Over Reason", value: gameOverReasonLabel)
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundStyle(ArcadeTheme.accentSecondary)
+                        .accessibilityHidden(true)
+                    recapRow(title: "Reason", value: gameOverReasonLabel)
+                }
             }
             .padding(10)
             .background(ArcadeTheme.chipFill)

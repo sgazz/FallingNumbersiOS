@@ -28,6 +28,17 @@ struct GameView: View {
     @State private var boardScale: CGFloat = 1.0
     @State private var transientBoardGlow: Double = 0
 
+    private var boardDangerOpacity: Double {
+        let capacity = max(1, viewModel.state.board.rows * viewModel.state.board.columns)
+        let occupancy = Double(viewModel.state.board.allOccupiedPositions().count) / Double(capacity)
+        switch occupancy {
+        case 0.85...: return 0.18
+        case 0.70..<0.85: return 0.10
+        case 0.55..<0.70: return 0.04
+        default: return 0
+        }
+    }
+
     var body: some View {
         ZStack {
             ArcadeTheme.backgroundGradient
@@ -75,6 +86,11 @@ struct GameView: View {
                                         + transientBoardGlow
                                     )
                                 )
+                                .allowsHitTesting(false)
+                        }
+                        .overlay {
+                            Rectangle()
+                                .fill(Color.red.opacity(boardDangerOpacity))
                                 .allowsHitTesting(false)
                         }
                         .overlay {
