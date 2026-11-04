@@ -27,8 +27,7 @@ struct HowToPlayView: View {
                                 numberChip(4)
                                 numberChip(5)
                             }
-                            .opacity(animateHorizontal ? 0.16 : 1.0)
-                            .scaleEffect(animateHorizontal ? 0.94 : 1.0)
+                            .scaleEffect(animateHorizontal ? 1.03 : 1.0)
                             .animation(.easeInOut(duration: 0.6).delay(0.55), value: animateHorizontal)
 
                             equation("3 + 4 + 5 = 12")
@@ -46,8 +45,7 @@ struct HowToPlayView: View {
                                 numberChip(2)
                                 numberChip(3)
                             }
-                            .opacity(animateVertical ? 0.16 : 1.0)
-                            .scaleEffect(animateVertical ? 0.94 : 1.0)
+                            .scaleEffect(animateVertical ? 1.03 : 1.0)
                             .animation(.easeInOut(duration: 0.6).delay(0.55), value: animateVertical)
 
                             equation("5 + 2 + 3 = 10")
@@ -81,7 +79,8 @@ struct HowToPlayView: View {
                         }
                     }
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
+                    .padding(.top, 12)
+                    .padding(.bottom, 28)
                 }
             }
             .navigationTitle("How To Play")
@@ -182,15 +181,17 @@ struct HowToPlayView: View {
                 .frame(width: 34, height: 34)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(ArcadeTheme.chipFill)
+                        .fill(ArcadeTheme.accentPrimary)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(ArcadeTheme.chipStroke, lineWidth: 1)
+                        .stroke(ArcadeTheme.accentSecondary.opacity(0.7), lineWidth: 1)
                 )
+                .shadow(color: ArcadeTheme.accentPrimary.opacity(0.24), radius: 4, y: 2)
             Text(text)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(ArcadeTheme.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer()
         }
     }
