@@ -1,6 +1,7 @@
 import Foundation
 
 struct GameState {
+    let runID: UUID
     var gameMode: GameMode
     var board: Board
     var activePiece: FallingPiece?
@@ -47,6 +48,7 @@ struct GameState {
 
     static func initial(config: GameConfig, mode: GameMode) -> GameState {
         GameState(
+            runID: UUID(),
             gameMode: mode,
             board: Board(rows: config.rows(for: mode), columns: config.columns(for: mode)),
             activePiece: nil,

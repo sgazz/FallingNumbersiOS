@@ -55,22 +55,27 @@ enum PowerUpSystem {
                 return lhs.column < rhs.column
             }
 
-        var values = positions.compactMap { state.board.cell(at: $0)?.kind.numericValue }
-        guard !values.isEmpty else {
+        let cells = positions.compactMap { position -> Cell? in
+            guard let cell = state.board.cell(at: position), cell.kind.numericValue != nil else { return nil }
+            return cell
+        }.enumerated().sorted { lhs, rhs in
+            if lhs.element.value != rhs.element.value { return lhs.element.value < rhs.element.value }
+            return lhs.offset < rhs.offset
+        }.map(\.element)
+        guard !cells.isEmpty else {
             GameDebugLogger.logPowerUp(type: "reorder", axis: nil, index: nil, removed: 0)
             return
         }
 
-        values.sort()
         for target in positions {
             state.board.setCell(nil, at: target)
         }
 
-        for (index, target) in positions.enumerated() where index < values.count {
-            state.board.setCell(Cell(value: values[index]), at: target)
+        for (index, target) in positions.enumerated() where index < cells.count {
+            state.board.setCell(cells[index], at: target)
         }
 
-        let affected = values.count
+        let affected = cells.count
         if affected >= 5 {
             state.score += 100
         }

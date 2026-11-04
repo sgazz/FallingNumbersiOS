@@ -45,14 +45,14 @@ The app pauses when inactive and resumes a run that was paused by the app lifecy
 - `Falling numbers/UI/Menu` — main menu and how-to-play screen.
 - `Falling numbers/UI/Settings` — sound, haptics, and record reset.
 - `Falling numbers/Rendering/SpriteKit` — state-only rendering, geometry, and tile animations.
-- `Falling numbers/Audio` — feedback interfaces, UIKit haptics, generated audio tones. Audio preparation and playback share a background serial queue.
+- `Falling numbers/Audio` — feedback interfaces, UIKit haptics, generated audio tones. Audio preparation and playback share a background serial queue; interruptions suspend effects, and audio service resets rebuild the players.
 - `Falling numbers/Persistence` — UserDefaults settings and per-mode high scores.
 - `Falling numbers/Theme` — shared visual constants.
 - `Falling numbersTests` — focused rule, engine, timing, spawning, progression, view model, rendering, and regression suites; shared doubles in `Support`.
 - `Falling numbersUITests` — navigation, settings, and launch checks.
 - `docs` — static marketing, support, and privacy pages.
 
-The engine has no dependency on SpriteKit or SwiftUI. Rendering mirrors engine state and does not mutate gameplay. The app clock sends elapsed monotonic time independently of the fall interval, so the configured lock delay does not change with falling speed. Tests can use `.tick` to advance by one fall interval or `.advanceTime(seconds)` for precise timing.
+The engine has no dependency on SpriteKit or SwiftUI. Rendering mirrors engine state and does not mutate gameplay. Tiles keep stable identities through locking, gravity, and reorder, so equal numbers do not exchange animations. Board equality compares contents; rendering signatures also include tile and run identities. The app clock sends elapsed monotonic time independently of the fall interval, so the configured lock delay does not change with falling speed. Tests can use `.tick` to advance by one fall interval or `.advanceTime(seconds)` for precise timing.
 
 Xcode uses filesystem-synchronized groups: Swift files added within the app or test folders are discovered automatically.
 

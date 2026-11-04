@@ -265,7 +265,7 @@ struct GameEngine {
     }
 
     private mutating func lock(_ piece: FallingPiece) -> GridPosition {
-        state.board.setCell(Cell(kind: piece.kind), at: piece.position)
+        state.board.setCell(Cell(kind: piece.kind, id: piece.id), at: piece.position)
         GameDebugLogger.logLock(value: piece.kind.numericValue ?? 0, position: piece.position)
         state.lastLockedPosition = piece.position
         state.activePiece = nil

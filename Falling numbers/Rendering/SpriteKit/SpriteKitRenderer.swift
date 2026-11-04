@@ -44,13 +44,13 @@ struct SpriteKitRenderer: UIViewRepresentable {
                     return lhs.column < rhs.column
                 }
                 .map { position in
-                    let kind = state.board.cell(at: position)?.kind
-                    return "\(position.row):\(position.column):\(kind?.displayText ?? ".")"
+                    let cell = state.board.cell(at: position)
+                    return "\(cell?.id.uuidString ?? "none"):\(position.row):\(position.column):\(cell?.kind.displayText ?? ".")"
                 }
                 .joined(separator: ",")
 
-            let active = state.activePiece.map { "\($0.position.row):\($0.position.column):\($0.kind.displayText)" } ?? "none"
-            return "\(occupied)|a:\(active)|lvl:\(state.level)|t:\(state.targetNumber)|p:\(state.isPaused)|g:\(state.isGameOver)|pu:\(state.powerUpEventToken)"
+            let active = state.activePiece.map { "\($0.id.uuidString):\($0.position.row):\($0.position.column):\($0.kind.displayText)" } ?? "none"
+            return "\(state.runID.uuidString)|\(occupied)|a:\(active)|lvl:\(state.level)|t:\(state.targetNumber)|p:\(state.isPaused)|g:\(state.isGameOver)|pu:\(state.powerUpEventToken)"
         }
     }
 }

@@ -227,6 +227,10 @@ struct GameView: View {
         .onChange(of: viewModel.boardShakeToken) { _, _ in
             hardDropFeedback()
         }
+        .onChange(of: viewModel.state.runID) { _, _ in
+            sumBannerTask?.cancel()
+            sumLearnBanner = nil
+        }
         .onDisappear {
             sumBannerTask?.cancel()
             sumBannerTask = nil
