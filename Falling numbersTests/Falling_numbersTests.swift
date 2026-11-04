@@ -1,4 +1,5 @@
 import Testing
+import SpriteKit
 import CoreGraphics
 import Foundation
 @testable import Falling_numbers
@@ -1799,6 +1800,61 @@ struct FallingNumbersTests {
         #expect((1...9).contains(engine.state.nextPieceValue))
     }
 
+    @Test(arguments: [GameMode.beginner, GameMode.expert])
+    @MainActor
+    func lockAndRepeatedClearProduceFeedback(mode: GameMode) {
+        let config = GameConfig(columns: 4, rows: 6, tickInterval: 60, baseTargetNumber: 10)
+        var state = GameState.initial(config: config, mode: mode)
+        state.cascadeCount = 2
+        state.linesCleared = 1
+        state.board.setCell(Cell(value: 6), at: GridPosition(row: 5, column: 1))
+        state.board.setCell(Cell(value: 9), at: GridPosition(row: 5, column: 3))
+        state.activePiece = FallingPiece(value: 4, position: GridPosition(row: 0, column: 1))
+        let audio = RecordingAudioClient()
+        let haptics = RecordingHapticsClient()
+        let viewModel = GameScreenViewModel(
+            engine: GameEngine(state: state, config: config),
+            highScoreStore: TestHighScoreStore(initial: 10000),
+            settingsStore: TestSettingsStore(initial: .default),
+            haptics: haptics,
+            audio: audio
+        )
+        viewModel.startGameFromOverlay()
+        viewModel.hardDrop()
+
+        #expect(viewModel.state.activePiece != nil)
+        #expect(viewModel.state.linesCleared == 2)
+        #expect(audio.events.filter { $0 == .lock }.count == 1)
+        #expect(audio.events.filter { $0 == .clear }.count == 1)
+        #expect(haptics.lockCount == 1)
+        #expect(haptics.clearCount == 1)
+        viewModel.togglePause()
+        viewModel.hardDrop()
+        #expect(haptics.lockCount == 1)
+        #expect(haptics.clearCount == 1)
+    }
+
+    @Test
+    @MainActor
+    func sceneResizesBoardWithoutGameplayChange() throws {
+        let scene = GameScene(size: CGSize(width: 320, height: 640))
+        let view = SKView(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+        view.presentScene(scene)
+        var state = GameState.initial(config: .default)
+        state.isPaused = true
+        scene.render(state: state)
+        let board = try #require(scene.children.compactMap { $0 as? BoardNode }.first)
+        let background = try #require(board.children.compactMap { $0 as? SKShapeNode }.first)
+        let oldWidth = try #require(background.path).boundingBox.width
+
+        scene.size = CGSize(width: 200, height: 400)
+
+        #expect(board.position == CGPoint(x: 100, y: 200))
+        let newWidth = try #require(background.path).boundingBox.width
+        #expect(newWidth < oldWidth)
+        #expect(abs(newWidth / oldWidth - 0.625) < 0.001)
+    }
+
     private func groupKey(_ group: [GridPosition]) -> String {
         group
             .sorted { lhs, rhs in
@@ -1876,4 +1932,17 @@ final class TestSettingsStore: SettingsStoring {
     func save(_ settings: AppSettings) {
         savedSettings = settings
     }
+}
+
+@MainActor
+final class RecordingHapticsClient: HapticsClient {
+    private(set) var lockCount = 0
+    private(set) var clearCount = 0
+    func moved() {}
+    func pieceLocked() { lockCount += 1 }
+    func cleared(combo: Int) { clearCount += 1 }
+    func perfectClear() {}
+    func gameOver() {}
+    func newBest() {}
+    func powerUpActivated(_ type: PowerUpType) {}
 }

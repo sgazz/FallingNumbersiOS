@@ -223,11 +223,11 @@ final class GameScreenViewModel: ObservableObject {
         }
 
         if let previous {
-            if previous.activePiece != nil, state.activePiece == nil {
+            if state.telemetry.totalLocks > previous.telemetry.totalLocks {
                 if settings.isHapticsEnabled { haptics.pieceLocked() }
                 if settings.isSoundEnabled { audio.trigger(.lock) }
             }
-            if state.cascadeCount > previous.cascadeCount, state.cascadeCount > 0 {
+            if state.linesCleared > previous.linesCleared {
                 if state.gameMode == .beginner {
                     if settings.isHapticsEnabled { haptics.cleared(combo: state.cascadeCount) }
                     if settings.isSoundEnabled {
@@ -237,7 +237,7 @@ final class GameScreenViewModel: ObservableObject {
                         }
                     }
                     comboPulseToken &+= 1
-                } else if previous.cascadeCount == 0 {
+                } else {
                     if settings.isHapticsEnabled { haptics.cleared(combo: 1) }
                     if settings.isSoundEnabled { audio.trigger(.clear) }
                 }

@@ -1,9 +1,28 @@
 import Foundation
 import AVFoundation
 
-final class UIKitAudioClient: AudioClient {
-    private let session = AVAudioSession.sharedInstance()
+// Mutable playback state is confined to the serial queue; callers only enqueue work.
+nonisolated final class UIKitAudioClient: AudioClient, @unchecked Sendable {
     private let queue = DispatchQueue(label: "FallingNumbers.AudioClient")
+    // Accessed only on queue, including construction and playback.
+    private var playback: AudioPlayback?
+
+    init() {
+        queue.async { [weak self] in
+            self?.playback = AudioPlayback()
+        }
+    }
+
+    func trigger(_ event: SoundEvent) {
+        queue.async { [weak self] in
+            self?.playback?.trigger(event)
+        }
+    }
+}
+
+// Audio work must not inherit the project's default MainActor isolation.
+nonisolated private final class AudioPlayback {
+    private let session = AVAudioSession.sharedInstance()
 
     private let movePlayer: TonePlayer
     private let lockPlayer: TonePlayer
@@ -20,6 +39,16 @@ final class UIKitAudioClient: AudioClient {
     private let buttonTapPlayer: TonePlayer
 
     init() {
+        // Configure before prepareToPlay, which can also activate the session.
+        do {
+            try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
+            try session.setActive(true, options: [])
+        } catch {
+#if DEBUG
+            print("[AUDIO] Failed to configure AVAudioSession: \(error)")
+#endif
+        }
+
         movePlayer = TonePlayer(frequency: 430, duration: 0.035, volume: 0.09)
         lockPlayer = TonePlayer(frequency: 280, duration: 0.08, volume: 0.14)
         clearPlayer = TonePlayer(frequency: 620, duration: 0.07, volume: 0.15)
@@ -33,59 +62,43 @@ final class UIKitAudioClient: AudioClient {
         reorderPlayer = TonePlayer(frequency: 460, duration: 0.1, volume: 0.14)
         gameOverPlayer = TonePlayer(frequency: 190, duration: 0.14, volume: 0.14)
         buttonTapPlayer = TonePlayer(frequency: 500, duration: 0.05, volume: 0.10)
-
-        configureSession()
     }
 
     func trigger(_ event: SoundEvent) {
-        queue.async { [weak self] in
-            guard let self else { return }
-            switch event {
-            case .move:
-                movePlayer.play()
-            case .lock:
-                lockPlayer.play()
-            case .clear:
-                clearPlayer.play()
-            case .cascade(let level):
-                if level >= 4 {
-                    cascadeHighPlayer.play()
-                } else if level >= 3 {
-                    cascadeMidPlayer.play()
-                } else {
-                    cascadeLowPlayer.play()
-                }
-            case .perfectClear:
-                perfectClearPlayer.play()
-            case .hardDrop:
-                hardDropPlayer.play()
-            case .rowClear:
-                rowClearPlayer.play()
-            case .columnClear:
-                columnClearPlayer.play()
-            case .reorder:
-                reorderPlayer.play()
-            case .gameOver:
-                gameOverPlayer.play()
-            case .buttonTap:
-                buttonTapPlayer.play()
+        switch event {
+        case .move:
+            movePlayer.play()
+        case .lock:
+            lockPlayer.play()
+        case .clear:
+            clearPlayer.play()
+        case .cascade(let level):
+            if level >= 4 {
+                cascadeHighPlayer.play()
+            } else if level >= 3 {
+                cascadeMidPlayer.play()
+            } else {
+                cascadeLowPlayer.play()
             }
-        }
-    }
-
-    private func configureSession() {
-        do {
-            try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
-            try session.setActive(true, options: [])
-        } catch {
-#if DEBUG
-            print("[AUDIO] Failed to configure AVAudioSession: \(error)")
-#endif
+        case .perfectClear:
+            perfectClearPlayer.play()
+        case .hardDrop:
+            hardDropPlayer.play()
+        case .rowClear:
+            rowClearPlayer.play()
+        case .columnClear:
+            columnClearPlayer.play()
+        case .reorder:
+            reorderPlayer.play()
+        case .gameOver:
+            gameOverPlayer.play()
+        case .buttonTap:
+            buttonTapPlayer.play()
         }
     }
 }
 
-private final class TonePlayer {
+nonisolated private final class TonePlayer {
     private var player: AVAudioPlayer?
 
     init(frequency: Double, duration: Double, volume: Float) {
