@@ -177,9 +177,10 @@ struct GameViewModelTests {
 
         viewModel.setSoundEnabled(false)
         viewModel.setHapticsEnabled(false)
+        viewModel.setColorBlindModeEnabled(true)
         viewModel.resetHighScore()
 
-        #expect(settingsStore.savedSettings == AppSettings(isSoundEnabled: false, isHapticsEnabled: false))
+        #expect(settingsStore.savedSettings == AppSettings(isSoundEnabled: false, isHapticsEnabled: false, isColorBlindModeEnabled: true))
         #expect(viewModel.highScore == 0)
         #expect(highScoreStore.savedValue(for: .beginner) == 0)
     }

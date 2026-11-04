@@ -31,6 +31,20 @@ struct SettingsView: View {
                             .tint(ArcadeTheme.accentSecondary)
                             .foregroundStyle(ArcadeTheme.textPrimary)
                             .accessibilityLabel("Haptics")
+
+                            Divider()
+                                .overlay(ArcadeTheme.chipStroke.opacity(0.8))
+
+                            Toggle("Color Blind Mode", isOn: Binding(
+                                get: { viewModel.settings.isColorBlindModeEnabled },
+                                set: { viewModel.setColorBlindModeEnabled($0) }
+                            ))
+                            .tint(ArcadeTheme.accentPrimary)
+                            .foregroundStyle(ArcadeTheme.textPrimary)
+                            .accessibilityLabel("Color Blind Mode")
+                            Text("Uses a high-contrast palette designed to remain distinguishable without relying on color alone.")
+                                .font(.footnote)
+                                .foregroundStyle(ArcadeTheme.textSecondary)
                         }
 
                         settingsCard(title: "Data") {

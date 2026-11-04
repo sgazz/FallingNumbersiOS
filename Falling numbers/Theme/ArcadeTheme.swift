@@ -24,8 +24,14 @@ enum ArcadeTheme {
     static let gridLine = UIColor(white: 1, alpha: 0.075)
     static let tileStroke = UIColor(white: 1, alpha: 0.24)
 
+    static var colorBlindModeEnabled: Bool {
+        UserDefaults.standard.bool(forKey: "falling_numbers_color_blind_enabled")
+    }
+
     static func tileColor(for value: Int) -> UIColor {
-        let colors: [UInt32] = [0x007F7A, 0xC34D3B, 0x4669B5, 0x8461A8, 0xA84677,
+        let colors: [UInt32] = colorBlindModeEnabled
+            ? [0x0072B2, 0xD55E00, 0x009E73, 0xCC79A7, 0xE69F00, 0x56B4E9, 0x000000, 0xF0E442, 0x7F3C8D]
+            : [0x007F7A, 0xC34D3B, 0x4669B5, 0x8461A8, 0xA84677,
                                 0x946B18, 0x3D8055, 0xBA4E33, 0x416E87]
         let hex = colors[min(8, max(0, value - 1))]
         return UIColor(red: CGFloat((hex >> 16) & 255) / 255,

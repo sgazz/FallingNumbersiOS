@@ -50,7 +50,8 @@ struct SpriteKitRenderer: UIViewRepresentable {
                 .joined(separator: ",")
 
             let active = state.activePiece.map { "\($0.id.uuidString):\($0.position.row):\($0.position.column):\($0.kind.displayText)" } ?? "none"
-            return "\(state.runID.uuidString)|\(occupied)|a:\(active)|lvl:\(state.level)|t:\(state.targetNumber)|p:\(state.isPaused)|g:\(state.isGameOver)|pu:\(state.powerUpEventToken)"
+            let colorBlindMode = UserDefaults.standard.bool(forKey: "falling_numbers_color_blind_enabled")
+            return "\(state.runID.uuidString)|\(occupied)|a:\(active)|lvl:\(state.level)|t:\(state.targetNumber)|p:\(state.isPaused)|g:\(state.isGameOver)|pu:\(state.powerUpEventToken)|cb:\(colorBlindMode)"
         }
     }
 }

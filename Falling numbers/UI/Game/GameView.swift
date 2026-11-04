@@ -39,6 +39,13 @@ struct GameView: View {
         }
     }
 
+    private var boardAccessibilitySummary: String {
+        let occupied = viewModel.state.board.allOccupiedPositions().count
+        let capacity = max(1, viewModel.state.board.rows * viewModel.state.board.columns)
+        let active = viewModel.state.activePiece?.kind.displayText ?? "none"
+        return "Board, (occupied) of (capacity) cells occupied. Target (viewModel.state.targetNumber). Active piece (active)."
+    }
+
     var body: some View {
         ZStack {
             ArcadeTheme.backgroundGradient
@@ -76,6 +83,8 @@ struct GameView: View {
                         ))
                         .frame(width: boardWidth, height: boardHeight)
                         .clipShape(Rectangle())
+                        .accessibilityLabel(boardAccessibilitySummary)
+                        .accessibilityIdentifier("game.board")
                         .overlay {
                             Rectangle()
                                 .fill(

@@ -214,6 +214,12 @@ final class GameScreenViewModel: ObservableObject {
         settingsStore.save(settings)
     }
 
+    func setColorBlindModeEnabled(_ enabled: Bool) {
+        settings.isColorBlindModeEnabled = enabled
+        settingsStore.save(settings)
+        objectWillChange.send()
+    }
+
     func resetHighScore() {
         highScoreStore.save(0, for: state.gameMode)
         highScore = 0
