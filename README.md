@@ -47,7 +47,7 @@ The app pauses when inactive and resumes a run that was paused by the app lifecy
 - `Falling numbers/Rendering/SpriteKit` — renderer and scene (`SpriteKitRenderer.swift`), board geometry, and tile animations.
 - `Falling numbers/Audio` — feedback interfaces and UIKit haptics (`FeedbackClients.swift`), plus generated audio tones (`UIKitAudioClient.swift`). Audio preparation and playback share a background serial queue; players are created on the first sound, interruptions suspend effects, and audio service resets rebuild players on demand. Each resolved turn uses one primary sound and haptic effect, prioritizing game over, perfect clears, power-ups, clears, and placement. Muting or leaving the app stops playing effects.
 - `Falling numbers/Persistence` — UserDefaults settings and per-mode high scores in `UserDefaultsStores.swift`.
-- `Falling numbers/Theme` — the warm paper, ink, teal, and coral palette in `ArcadeTheme.swift`.
+- `Falling numbers/Theme` — Classic (paper, ink, teal, and coral), Cappuccino (cream, ochre, and coffee), Carnival (nine saturated tile colors, candy accents, and a pastel background), and Neon (midnight surfaces, electric outlines, and a soft glow) palettes in `ArcadeTheme.swift`. Settings saves the selection; changing it refreshes the HUD, board, and existing tiles without restarting the run. Cappuccino uses one tile color with readable white values and symbols.
 - `Falling numbersTests` — focused rule, engine, timing, spawning, progression, view model, rendering, and regression suites; shared doubles in `Support`.
 - `Falling numbersUITests` — navigation and settings flows, each starting with app launch; a game-screen screenshot is attached to the menu/resume test.
 - `docs` — static marketing, support, and privacy pages.

@@ -75,6 +75,46 @@ final class Falling_numbersUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Resume"].isHittable)
     }
 
+    func testCappuccinoThemeUpdatesGameAndPersists() {
+        verifyThemeUpdatesGameAndPersists("Cappuccino")
+    }
+
+    func testCarnivalThemeUpdatesGameAndPersists() {
+        verifyThemeUpdatesGameAndPersists("Carnival")
+    }
+
+    func testNeonThemeUpdatesGameAndPersists() {
+        verifyThemeUpdatesGameAndPersists("Neon")
+    }
+
+    private func verifyThemeUpdatesGameAndPersists(_ theme: String) {
+        let app = launchGame()
+        tap(app.buttons["Pause game"])
+        tap(app.buttons["Settings"])
+        tap(app.buttons[theme])
+        XCTAssertTrue(app.buttons[theme].isSelected)
+        let settingsShot = XCTAttachment(screenshot: app.screenshot())
+        settingsShot.name = "\(theme) - Settings"
+        settingsShot.lifetime = .keepAlways
+        add(settingsShot)
+        tap(app.buttons["Done"])
+        tap(app.buttons["Resume"])
+        XCTAssertTrue(app.buttons["Pause game"].isHittable)
+        let gameShot = XCTAttachment(screenshot: app.screenshot())
+        gameShot.name = "\(theme) - Game"
+        gameShot.lifetime = .keepAlways
+        add(gameShot)
+
+        app.terminate()
+        app.launch()
+        tap(app.buttons["Settings"])
+        XCTAssertTrue(app.buttons[theme].isSelected)
+        // Restore the default appearance for other navigation tests.
+        tap(app.buttons["Classic"])
+        XCTAssertTrue(app.buttons["Classic"].isSelected)
+        tap(app.buttons["Done"])
+    }
+
     private func launchGame() -> XCUIApplication {
         let app = XCUIApplication()
         // Navigation tests start directly in the game, independently of saved onboarding state.

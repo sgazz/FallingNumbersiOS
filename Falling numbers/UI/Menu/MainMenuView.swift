@@ -167,6 +167,8 @@ struct MainMenuView: View {
             .frame(width: 65, height: 72)
             .background(Color(ArcadeTheme.tileColor(for: number == 10 ? 3 : number)),
                         in: RoundedRectangle(cornerRadius: 18))
+            .overlay(RoundedRectangle(cornerRadius: 18)
+                .stroke(Color(ArcadeTheme.tileAccent(for: number == 10 ? 3 : number)), lineWidth: 1.5))
             .rotationEffect(.degrees(rotation))
             .shadow(color: ArcadeTheme.ink.opacity(0.14), radius: 0, x: 0, y: 5)
     }

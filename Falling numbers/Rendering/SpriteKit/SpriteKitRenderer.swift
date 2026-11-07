@@ -3,6 +3,7 @@ import SpriteKit
 
 struct SpriteKitRenderer: UIViewRepresentable {
     @Binding var state: GameState
+    @AppStorage(AppTheme.storageKey) private var selectedTheme = AppTheme.classic.rawValue
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeUIView(context: Context) -> SKView {
@@ -23,7 +24,7 @@ struct SpriteKitRenderer: UIViewRepresentable {
     func updateUIView(_ uiView: SKView, context: Context) {
         // Rendering boundary: SpriteKit only mirrors immutable engine state.
         // It never mutates gameplay logic and skips redundant redraws by signature.
-        let signature = context.coordinator.makeSignature(for: state) + "|rm:\(reduceMotion)"
+        let signature = context.coordinator.makeSignature(for: state) + "|theme:\(selectedTheme)|rm:\(reduceMotion)"
         guard signature != context.coordinator.lastSignature else { return }
         context.coordinator.lastSignature = signature
         context.coordinator.scene?.render(state: state, reduceMotion: reduceMotion)
@@ -51,8 +52,8 @@ struct SpriteKitRenderer: UIViewRepresentable {
                 .joined(separator: ",")
 
             let active = state.activePiece.map { "\($0.id.uuidString):\($0.position.row):\($0.position.column):\($0.kind.displayText)" } ?? "none"
-            let colorBlindMode = UserDefaults.standard.bool(forKey: "falling_numbers_color_blind_enabled")
-            return "\(state.runID.uuidString)|\(occupied)|a:\(active)|lvl:\(state.level)|t:\(state.targetNumber)|p:\(state.isPaused)|g:\(state.isGameOver)|pu:\(state.powerUpEventToken)|cb:\(colorBlindMode)"
+            let appearance = ArcadeTheme.appearanceKey
+            return "\(state.runID.uuidString)|\(occupied)|a:\(active)|lvl:\(state.level)|t:\(state.targetNumber)|p:\(state.isPaused)|g:\(state.isGameOver)|pu:\(state.powerUpEventToken)|appearance:\(appearance)"
         }
     }
 }

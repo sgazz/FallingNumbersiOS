@@ -212,6 +212,11 @@ final class GameScreenViewModel: ObservableObject {
         settingsStore.save(settings)
     }
 
+    func setTheme(_ theme: AppTheme) {
+        settings.theme = theme
+        settingsStore.save(settings)
+    }
+
     func setColorBlindModeEnabled(_ enabled: Bool) {
         settings.isColorBlindModeEnabled = enabled
         settingsStore.save(settings)

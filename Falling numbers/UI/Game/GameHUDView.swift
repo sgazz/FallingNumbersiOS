@@ -107,6 +107,8 @@ struct GameHUDView: View {
                                 Color(ArcadeTheme.tileColor(for: viewModel.state.nextPieceKind)),
                                 in: RoundedRectangle(cornerRadius: 9)
                             )
+                            .overlay(RoundedRectangle(cornerRadius: 9)
+                                .stroke(Color(ArcadeTheme.tileAccent(for: viewModel.state.nextPieceKind)), lineWidth: 1.5))
                             .accessibilityLabel("Next piece \(viewModel.state.nextPieceDisplayText)")
                     }
                     Button(action: viewModel.togglePause) {

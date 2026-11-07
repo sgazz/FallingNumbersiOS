@@ -116,7 +116,7 @@ struct GameView: View {
                         .overlay {
                             Rectangle()
                                 .fill(
-                                    Color.orange.opacity(
+                                    ArcadeTheme.feedbackGlow.opacity(
                                         (viewModel.showsCascadeHUD
                                             ? min(0.16, Double(max(0, viewModel.state.cascadeCount - 1)) * 0.03)
                                             : 0)
@@ -127,7 +127,7 @@ struct GameView: View {
                         }
                         .overlay {
                             Rectangle()
-                                .fill(Color.red.opacity(boardDangerOpacity))
+                                .fill(ArcadeTheme.dangerTint.opacity(boardDangerOpacity))
                                 .allowsHitTesting(false)
                         }
                         .overlay {

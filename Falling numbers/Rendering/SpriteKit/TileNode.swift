@@ -16,6 +16,7 @@ final class TileNode: SKNode {
     private var cachedSize: CGFloat = 0
     private var cachedIsActive: Bool = false
     private var cachedReduceMotion = false
+    private var cachedAppearanceKey: String?
 
     init(kind: TileKind, size: CGFloat, isActive: Bool, reduceMotion: Bool = false) {
         super.init()
@@ -47,8 +48,10 @@ final class TileNode: SKNode {
         let sizeChanged = abs(cachedSize - size) > 0.001
         let activeChanged = cachedIsActive != isActive
 
-        guard valueChanged || sizeChanged || activeChanged || cachedReduceMotion != reduceMotion else { return }
+        guard valueChanged || sizeChanged || activeChanged || cachedReduceMotion != reduceMotion
+                || cachedAppearanceKey != ArcadeTheme.appearanceKey else { return }
 
+        cachedAppearanceKey = ArcadeTheme.appearanceKey
         cachedReduceMotion = reduceMotion
         cachedKind = kind
         cachedSize = size
@@ -63,15 +66,15 @@ final class TileNode: SKNode {
         )
 
         shadowNode.path = roundedPath
-        shadowNode.fillColor = UIColor(red: 0.21, green: 0.13, blue: 0.09, alpha: 0.18)
+        shadowNode.fillColor = ArcadeTheme.tileShadow
         shadowNode.strokeColor = .clear
         shadowNode.position = CGPoint(x: 0, y: -size * 0.05)
 
         shapeNode.path = roundedPath
         shapeNode.fillColor = ArcadeTheme.tileColor(for: kind)
-        shapeNode.strokeColor = ArcadeTheme.tileStroke
+        shapeNode.strokeColor = ArcadeTheme.tileAccent(for: kind)
         shapeNode.lineWidth = max(1.2, size * 0.036)
-        shapeNode.glowWidth = 0
+        shapeNode.glowWidth = ArcadeTheme.isNeon ? (isActive ? 2.5 : 1.2) : 0
 
         if reduceMotion {
             removeAction(forKey: "activeScale")
@@ -117,7 +120,7 @@ final class TileNode: SKNode {
         let warmOverlay: SKShapeNode? = {
             guard let path = shapeNode.path else { return nil }
             let overlay = SKShapeNode(path: path)
-            overlay.fillColor = UIColor(red: 1.0, green: 0.82, blue: 0.42, alpha: 0.0)
+            overlay.fillColor = ArcadeTheme.clearHighlight.withAlphaComponent(0)
             overlay.strokeColor = .clear
             overlay.zPosition = shapeNode.zPosition + 0.2
             addChild(overlay)
