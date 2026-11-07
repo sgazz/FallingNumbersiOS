@@ -115,6 +115,24 @@ final class Falling_numbersUITests: XCTestCase {
         tap(app.buttons["Done"])
     }
 
+    func testSoundPreviewFollowsSoundToggle() {
+        let app = launchGame()
+        tap(app.buttons["Pause game"])
+        tap(app.buttons["Settings"])
+        let sound = app.switches["Sound"]
+        XCTAssertTrue(sound.waitForExistence(timeout: 5))
+        if sound.value as? String == "0" { tap(sound) }
+        let preview = app.buttons["Test sound"]
+        XCTAssertTrue(preview.isEnabled)
+        tap(preview)
+        tap(sound)
+        XCTAssertFalse(preview.isEnabled)
+        tap(sound)
+        XCTAssertTrue(preview.isEnabled)
+        tap(preview)
+        tap(app.buttons["Done"])
+    }
+
     private func launchGame() -> XCUIApplication {
         let app = XCUIApplication()
         // Navigation tests start directly in the game, independently of saved onboarding state.

@@ -201,6 +201,12 @@ final class GameScreenViewModel: ObservableObject {
         settings.isSoundEnabled = enabled
         if !enabled { audio.stop() }
         settingsStore.save(settings)
+        if enabled { audio.trigger(.clear) }
+    }
+
+    func testSound() {
+        guard settings.isSoundEnabled else { return }
+        audio.trigger(.clear)
     }
 
     func triggerButtonTapSound() {

@@ -71,6 +71,21 @@ struct SettingsView: View {
                             .foregroundStyle(ArcadeTheme.textPrimary)
                             .accessibilityLabel("Sound")
 
+                            Button(action: viewModel.testSound) {
+                                Label("Test Sound", systemImage: "speaker.wave.2.fill")
+                                    .font(.subheadline.weight(.semibold))
+                                    .frame(maxWidth: .infinity, minHeight: 44)
+                                    .foregroundStyle(ArcadeTheme.textPrimary)
+                                    .background(ArcadeTheme.chipFill, in: RoundedRectangle(cornerRadius: 10))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(!viewModel.settings.isSoundEnabled)
+                            .opacity(viewModel.settings.isSoundEnabled ? 1 : 0.45)
+                            .accessibilityLabel("Test sound")
+                            Text("Uses media volume, even in Silent Mode. Test Sound plays a short preview.")
+                                .font(.footnote)
+                                .foregroundStyle(ArcadeTheme.textSecondary)
+
                             Divider()
                                 .overlay(ArcadeTheme.chipStroke.opacity(0.8))
 

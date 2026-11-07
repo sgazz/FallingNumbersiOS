@@ -51,10 +51,18 @@ nonisolated final class UIKitAudioClient: AudioClient, @unchecked Sendable {
     }
 
     func trigger(_ event: SoundEvent) {
+        trigger(event) { _ in }
+    }
+
+    // Report actual player submission so integration tests can verify the whole audio path.
+    func trigger(_ event: SoundEvent, completion: @escaping @Sendable (Bool) -> Void) {
         queue.async { [weak self] in
-            guard let self, self.servicesAvailable, !self.isInterrupted else { return }
+            guard let self, self.servicesAvailable, !self.isInterrupted else {
+                completion(false)
+                return
+            }
             if self.playback == nil { self.playback = AudioPlayback() }
-            self.playback?.trigger(event)
+            completion(self.playback?.trigger(event) ?? false)
         }
     }
 
@@ -86,28 +94,26 @@ nonisolated private final class AudioPlayback {
     init() {
         // Configure before prepareToPlay, which can also activate the session.
         do {
-            try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
+            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try session.setActive(true, options: [])
             isSessionActive = true
         } catch {
-#if DEBUG
-            print("[AUDIO] Failed to configure AVAudioSession: \(error)")
-#endif
+            NSLog("[AUDIO] Failed to configure AVAudioSession: %@", String(describing: error))
         }
 
-        movePlayer = TonePlayer(frequency: 430, duration: 0.035, volume: 0.09)
-        lockPlayer = TonePlayer(frequency: 280, duration: 0.08, volume: 0.14)
-        clearPlayer = TonePlayer(frequency: 620, duration: 0.07, volume: 0.15)
-        cascadeLowPlayer = TonePlayer(frequency: 700, duration: 0.07, volume: 0.14)
-        cascadeMidPlayer = TonePlayer(frequency: 780, duration: 0.07, volume: 0.15)
-        cascadeHighPlayer = TonePlayer(frequency: 860, duration: 0.07, volume: 0.16)
-        perfectClearPlayer = TonePlayer(frequency: 920, duration: 0.12, volume: 0.17)
-        hardDropPlayer = TonePlayer(frequency: 220, duration: 0.08, volume: 0.16)
-        rowClearPlayer = TonePlayer(frequency: 540, duration: 0.08, volume: 0.15)
-        columnClearPlayer = TonePlayer(frequency: 500, duration: 0.08, volume: 0.15)
-        reorderPlayer = TonePlayer(frequency: 460, duration: 0.1, volume: 0.14)
-        gameOverPlayer = TonePlayer(frequency: 190, duration: 0.14, volume: 0.14)
-        buttonTapPlayer = TonePlayer(frequency: 500, duration: 0.05, volume: 0.10)
+        movePlayer = TonePlayer(frequency: 430, duration: 0.07, volume: 0.28)
+        lockPlayer = TonePlayer(frequency: 280, duration: 0.12, volume: 0.40)
+        clearPlayer = TonePlayer(frequency: 620, duration: 0.12, volume: 0.42)
+        cascadeLowPlayer = TonePlayer(frequency: 700, duration: 0.12, volume: 0.40)
+        cascadeMidPlayer = TonePlayer(frequency: 780, duration: 0.12, volume: 0.42)
+        cascadeHighPlayer = TonePlayer(frequency: 860, duration: 0.12, volume: 0.44)
+        perfectClearPlayer = TonePlayer(frequency: 920, duration: 0.20, volume: 0.48)
+        hardDropPlayer = TonePlayer(frequency: 220, duration: 0.12, volume: 0.44)
+        rowClearPlayer = TonePlayer(frequency: 540, duration: 0.14, volume: 0.42)
+        columnClearPlayer = TonePlayer(frequency: 500, duration: 0.14, volume: 0.42)
+        reorderPlayer = TonePlayer(frequency: 460, duration: 0.16, volume: 0.40)
+        gameOverPlayer = TonePlayer(frequency: 190, duration: 0.22, volume: 0.40)
+        buttonTapPlayer = TonePlayer(frequency: 500, duration: 0.09, volume: 0.32)
     }
 
     private var players: [TonePlayer] {
@@ -143,73 +149,93 @@ nonisolated private final class AudioPlayback {
         guard !isInterrupted else { return false }
         if isSessionActive { return true }
         do {
+            // Retry configuration too: an earlier interruption or activation failure may have left it unset.
+            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try session.setActive(true)
             isSessionActive = true
             return true
         } catch {
-#if DEBUG
-            print("[AUDIO] Failed to reactivate AVAudioSession: \(error)")
-#endif
+            NSLog("[AUDIO] Failed to reactivate AVAudioSession: %@", String(describing: error))
             return false
         }
     }
 
-    func trigger(_ event: SoundEvent) {
-        guard activateIfNeeded() else { return }
+    func trigger(_ event: SoundEvent) -> Bool {
+        guard activateIfNeeded() else { return false }
         switch event {
         case .move:
-            movePlayer.play()
+            return movePlayer.play()
         case .lock:
-            lockPlayer.play()
+            return lockPlayer.play()
         case .clear:
-            clearPlayer.play()
+            return clearPlayer.play()
         case .cascade(let level):
             if level >= 4 {
-                cascadeHighPlayer.play()
+                return cascadeHighPlayer.play()
             } else if level >= 3 {
-                cascadeMidPlayer.play()
+                return cascadeMidPlayer.play()
             } else {
-                cascadeLowPlayer.play()
+                return cascadeLowPlayer.play()
             }
         case .perfectClear:
-            perfectClearPlayer.play()
+            return perfectClearPlayer.play()
         case .hardDrop:
-            hardDropPlayer.play()
+            return hardDropPlayer.play()
         case .rowClear:
-            rowClearPlayer.play()
+            return rowClearPlayer.play()
         case .columnClear:
-            columnClearPlayer.play()
+            return columnClearPlayer.play()
         case .reorder:
-            reorderPlayer.play()
+            return reorderPlayer.play()
         case .gameOver:
-            gameOverPlayer.play()
+            return gameOverPlayer.play()
         case .buttonTap:
-            buttonTapPlayer.play()
+            return buttonTapPlayer.play()
         }
     }
 }
 
-nonisolated private final class TonePlayer {
+// Internal so integration tests can exercise the real AVAudioPlayer path, not just event doubles.
+nonisolated final class TonePlayer {
     private var player: AVAudioPlayer?
+    private let data: Data?
+    private let volume: Float
 
     init(frequency: Double, duration: Double, volume: Float) {
-        guard let data = TonePlayer.makeToneData(frequency: frequency, duration: duration) else { return }
+        self.data = Self.makeToneData(frequency: frequency, duration: duration)
+        self.volume = volume
+        preparePlayer()
+    }
+
+    var isPlaying: Bool { player?.isPlaying ?? false }
+    var currentTime: TimeInterval { player?.currentTime ?? 0 }
+
+    private func preparePlayer() {
+        guard let data else { return }
         do {
-            let player = try AVAudioPlayer(data: data)
-            player.volume = volume
-            player.prepareToPlay()
-            self.player = player
+            let candidate = try AVAudioPlayer(data: data, fileTypeHint: AVFileType.wav.rawValue)
+            candidate.volume = volume
+            guard candidate.prepareToPlay() else {
+                NSLog("[AUDIO] Failed to prepare tone player")
+                return
+            }
+            player = candidate
         } catch {
-#if DEBUG
-            print("[AUDIO] Failed to initialize tone player: \(error)")
-#endif
+            NSLog("[AUDIO] Failed to initialize tone player: %@", String(describing: error))
         }
     }
 
-    func play() {
-        guard let player else { return }
+    @discardableResult
+    func play() -> Bool {
+        if player == nil { preparePlayer() }
+        guard let player else { return false }
         player.currentTime = 0
-        player.play()
+        guard player.play() else {
+            NSLog("[AUDIO] Tone playback failed; rebuilding player for the next effect")
+            self.player = nil
+            return false
+        }
+        return true
     }
 
     func stop() {
@@ -217,7 +243,7 @@ nonisolated private final class TonePlayer {
         player?.currentTime = 0
     }
 
-    private static func makeToneData(frequency: Double, duration: Double) -> Data? {
+    static func makeToneData(frequency: Double, duration: Double) -> Data? {
         let sampleRate = 44_100.0
         let frameCount = Int(sampleRate * duration)
         guard frameCount > 0 else { return nil }
