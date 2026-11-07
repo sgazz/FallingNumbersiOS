@@ -3,9 +3,11 @@ import Foundation
 struct AppSettings: Equatable {
     var isSoundEnabled: Bool
     var isHapticsEnabled: Bool
+    var theme: AppTheme
     var isColorBlindModeEnabled: Bool
 
-    init(isSoundEnabled: Bool, isHapticsEnabled: Bool, isColorBlindModeEnabled: Bool = false) {
+    init(isSoundEnabled: Bool, isHapticsEnabled: Bool, isColorBlindModeEnabled: Bool = false, theme: AppTheme = .classic) {
+        self.theme = theme
         self.isSoundEnabled = isSoundEnabled
         self.isHapticsEnabled = isHapticsEnabled
         self.isColorBlindModeEnabled = isColorBlindModeEnabled
@@ -45,11 +47,13 @@ struct UserDefaultsSettingsStore: SettingsStoring {
         return AppSettings(
             isSoundEnabled: hasSound ? defaults.bool(forKey: soundKey) : AppSettings.default.isSoundEnabled,
             isHapticsEnabled: hasHaptics ? defaults.bool(forKey: hapticsKey) : AppSettings.default.isHapticsEnabled,
-            isColorBlindModeEnabled: hasColorBlind ? defaults.bool(forKey: colorBlindKey) : AppSettings.default.isColorBlindModeEnabled
+            isColorBlindModeEnabled: hasColorBlind ? defaults.bool(forKey: colorBlindKey) : AppSettings.default.isColorBlindModeEnabled,
+            theme: AppTheme(rawValue: defaults.string(forKey: AppTheme.storageKey) ?? "") ?? .classic
         )
     }
 
     func save(_ settings: AppSettings) {
+        defaults.set(settings.theme.rawValue, forKey: AppTheme.storageKey)
         defaults.set(settings.isSoundEnabled, forKey: soundKey)
         defaults.set(settings.isHapticsEnabled, forKey: hapticsKey)
         defaults.set(settings.isColorBlindModeEnabled, forKey: colorBlindKey)

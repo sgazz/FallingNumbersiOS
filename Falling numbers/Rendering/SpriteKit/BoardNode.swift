@@ -55,7 +55,7 @@ final class BoardNode: SKNode {
             height: CGFloat(state.board.rows) * cellSize
         )
 
-        let geometryKey = "\(state.board.rows)x\(state.board.columns)|\(Int(cellSize * 100))"
+        let geometryKey = "\(ArcadeTheme.appearanceKey)|\(state.board.rows)x\(state.board.columns)|\(Int(cellSize * 100))"
         if geometryKey != lastGeometryKey {
             drawBoardBackground()
             drawGrid(board: state.board)
@@ -204,7 +204,7 @@ final class BoardNode: SKNode {
         let width = boardSize.width * 0.92
         let height = max(6, cellSize * 0.22)
         let sweep = SKShapeNode(rectOf: CGSize(width: width, height: height), cornerRadius: height * 0.5)
-        sweep.fillColor = UIColor(red: 1.0, green: 0.80, blue: 0.36, alpha: 0.62)
+        sweep.fillColor = ArcadeTheme.rowSweep
         sweep.strokeColor = .clear
         sweep.blendMode = .alpha
         sweep.position = CGPoint(x: 0, y: y)
@@ -226,7 +226,7 @@ final class BoardNode: SKNode {
         let width = max(6, cellSize * 0.22)
         let height = boardSize.height * 0.92
         let sweep = SKShapeNode(rectOf: CGSize(width: width, height: height), cornerRadius: width * 0.5)
-        sweep.fillColor = UIColor(red: 0.50, green: 0.86, blue: 1.0, alpha: 0.6)
+        sweep.fillColor = ArcadeTheme.columnSweep
         sweep.strokeColor = .clear
         sweep.blendMode = .alpha
         sweep.position = CGPoint(x: x, y: 0)

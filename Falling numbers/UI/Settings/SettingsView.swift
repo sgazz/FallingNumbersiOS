@@ -12,6 +12,56 @@ struct SettingsView: View {
 
                 ScrollView {
                     VStack(spacing: 12) {
+                        settingsCard(title: "Appearance") {
+                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                                ForEach(AppTheme.allCases, id: \.self) { theme in
+                                    let isSelected = viewModel.settings.theme == theme
+                                    Button { viewModel.setTheme(theme) } label: {
+                                        HStack(spacing: 6) {
+                                            Text(theme.title)
+                                                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                                .lineLimit(1)
+                                                .minimumScaleFactor(0.85)
+                                            if isSelected {
+                                                Image(systemName: "checkmark")
+                                                    .font(.caption.weight(.bold))
+                                            }
+                                        }
+                                        .frame(maxWidth: .infinity, minHeight: 44)
+                                        .foregroundStyle(isSelected
+                                            ? (ArcadeTheme.isNeon ? Color.black : Color.white)
+                                            : ArcadeTheme.textPrimary)
+                                        .background(isSelected ? ArcadeTheme.accentPrimary : ArcadeTheme.chipFill,
+                                                    in: RoundedRectangle(cornerRadius: 10))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityLabel(theme.title)
+                                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                                }
+                            }
+                            .accessibilityIdentifier("settings.theme")
+
+                            HStack(spacing: 8) {
+                                ForEach(1...3, id: \.self) { number in
+                                    Text("\(number)")
+                                        .font(.title3.bold())
+                                        .foregroundStyle(.white)
+                                        .frame(width: 42, height: 42)
+                                        .background(Color(ArcadeTheme.tileColor(for: number, theme: viewModel.settings.theme,
+                                                                               colorBlind: viewModel.settings.isColorBlindModeEnabled)),
+                                                    in: RoundedRectangle(cornerRadius: 8))
+                                        .overlay(RoundedRectangle(cornerRadius: 8)
+                                            .stroke(Color(ArcadeTheme.tileAccent(for: number, theme: viewModel.settings.theme,
+                                                                                colorBlind: viewModel.settings.isColorBlindModeEnabled)), lineWidth: 1.5))
+                                }
+                                Spacer()
+                            }
+                            .accessibilityHidden(true)
+                            Text(viewModel.settings.theme.detail)
+                                .font(.footnote)
+                                .foregroundStyle(ArcadeTheme.textSecondary)
+                        }
+
                         settingsCard(title: "Feedback") {
                             Toggle("Sound", isOn: Binding(
                                 get: { viewModel.settings.isSoundEnabled },
@@ -42,7 +92,9 @@ struct SettingsView: View {
                             .tint(ArcadeTheme.accentPrimary)
                             .foregroundStyle(ArcadeTheme.textPrimary)
                             .accessibilityLabel("Color Blind Mode")
-                            Text("Uses a high-contrast palette designed to remain distinguishable without relying on color alone.")
+                            Text(viewModel.settings.theme == .cappuccino
+                                ? "Cappuccino uses a single tile color. Numbers and symbols distinguish the pieces; this option changes the colorful palettes."
+                                : "Uses a high-contrast palette designed to remain distinguishable without relying on color alone.")
                                 .font(.footnote)
                                 .foregroundStyle(ArcadeTheme.textSecondary)
                         }
@@ -85,7 +137,7 @@ struct SettingsView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbarColorScheme(.light, for: .navigationBar)
+            .toolbarColorScheme(viewModel.settings.theme == .neon ? .dark : .light, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Settings")

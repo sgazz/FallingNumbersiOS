@@ -10,7 +10,6 @@ final class GameScreenViewModel: ObservableObject {
     @Published private(set) var state: GameState
     @Published private(set) var showsStartOverlay: Bool
     @Published private(set) var highScore: Int
-    @Published private(set) var boardShakeToken: Int = 0
     @Published private(set) var comboPulseToken: Int = 0
     @Published private(set) var targetPulseToken: Int = 0
     @Published private(set) var targetChangeToken: Int = 0
@@ -118,9 +117,7 @@ final class GameScreenViewModel: ObservableObject {
     func hardDrop() {
         guard !state.isPaused, !state.isGameOver else { return }
         engine.send(.hardDrop)
-        syncFromEngine(previous: state)
-        boardShakeToken &+= 1
-        if settings.isSoundEnabled { audio.trigger(.hardDrop) }
+        syncFromEngine(previous: state, hardDrop: true)
     }
 
     func togglePause() {
@@ -202,6 +199,7 @@ final class GameScreenViewModel: ObservableObject {
 
     func setSoundEnabled(_ enabled: Bool) {
         settings.isSoundEnabled = enabled
+        if !enabled { audio.stop() }
         settingsStore.save(settings)
     }
 
@@ -211,6 +209,11 @@ final class GameScreenViewModel: ObservableObject {
 
     func setHapticsEnabled(_ enabled: Bool) {
         settings.isHapticsEnabled = enabled
+        settingsStore.save(settings)
+    }
+
+    func setTheme(_ theme: AppTheme) {
+        settings.theme = theme
         settingsStore.save(settings)
     }
 
@@ -229,6 +232,7 @@ final class GameScreenViewModel: ObservableObject {
     }
 
     func appDidEnterBackground() {
+        audio.stop()
         stopTimer()
         guard !state.isPaused, !state.isGameOver else { return }
         pausedByLifecycle = true
@@ -246,7 +250,7 @@ final class GameScreenViewModel: ObservableObject {
         }
     }
 
-    private func syncFromEngine(previous: GameState?) {
+    private func syncFromEngine(previous: GameState?, hardDrop: Bool = false) {
         state = engine.state
 
         if let previous, previous.gameMode != state.gameMode {
@@ -261,58 +265,22 @@ final class GameScreenViewModel: ObservableObject {
         }
 
         if let previous {
-            let previousOccupancy = occupancyRatio(previous)
-            let currentOccupancy = occupancyRatio(state)
-            if previousOccupancy < 0.70, currentOccupancy >= 0.70,
-               settings.isHapticsEnabled {
-                haptics.warning()
-            }
-            if state.telemetry.totalLocks > previous.telemetry.totalLocks {
-                if settings.isHapticsEnabled { haptics.pieceLocked() }
-                if settings.isSoundEnabled { audio.trigger(.lock) }
-            }
+            deliverFeedback(previous: previous, hardDrop: hardDrop)
             if state.linesCleared > previous.linesCleared {
-                if state.gameMode == .beginner {
-                    if settings.isHapticsEnabled { haptics.cleared(combo: state.cascadeCount) }
-                    if settings.isSoundEnabled {
-                        audio.trigger(.clear)
-                        if state.cascadeCount >= 2 {
-                            audio.trigger(.cascade(level: state.cascadeCount))
-                        }
-                    }
-                    comboPulseToken &+= 1
-                } else {
-                    if settings.isHapticsEnabled { haptics.cleared(combo: 1) }
-                    if settings.isSoundEnabled { audio.trigger(.clear) }
-                }
+                if state.gameMode == .beginner { comboPulseToken &+= 1 }
                 targetPulseToken &+= 1
             }
             if state.didTargetChange {
                 targetChangeToken &+= 1
             }
             if !previous.isGameOver, state.isGameOver {
-                if settings.isHapticsEnabled { haptics.gameOver() }
-                if settings.isSoundEnabled { audio.trigger(.gameOver) }
                 didSetNewBestInRun = isCurrentRunEligibleForHighScore && state.score > runStartingBest
-                if didSetNewBestInRun, settings.isHapticsEnabled { haptics.newBest() }
             }
             if state.didPerfectClear {
-                if settings.isHapticsEnabled { haptics.perfectClear() }
-                if settings.isSoundEnabled { audio.trigger(.perfectClear) }
                 perfectClearToken &+= 1
             }
             if state.powerUpEventToken != previous.powerUpEventToken,
                let activation = state.lastPowerUpActivation {
-                if settings.isHapticsEnabled {
-                    haptics.powerUpActivated(activation.type)
-                }
-                if settings.isSoundEnabled {
-                    switch activation.type {
-                    case .rowClear: audio.trigger(.rowClear)
-                    case .columnClear: audio.trigger(.columnClear)
-                    case .reorder: audio.trigger(.reorder)
-                    }
-                }
                 lastPowerUpLabel = {
                     switch activation.type {
                     case .rowClear: return "Row Clear!"
@@ -329,6 +297,52 @@ final class GameScreenViewModel: ObservableObject {
         }
 
         restartTimerIfNeeded()
+    }
+
+    private func deliverFeedback(previous: GameState, hardDrop: Bool) {
+        // A resolved turn gets one primary effect, rather than overlapping impacts and tones.
+        let sound: SoundEvent
+        let haptic: () -> Void
+        if !previous.isGameOver, state.isGameOver {
+            sound = .gameOver
+            haptic = {
+                if self.isCurrentRunEligibleForHighScore && self.state.score > self.runStartingBest {
+                    self.haptics.newBest()
+                } else {
+                    self.haptics.gameOver()
+                }
+            }
+        } else if state.didPerfectClear {
+            sound = .perfectClear
+            haptic = { self.haptics.perfectClear() }
+        } else if state.powerUpEventToken != previous.powerUpEventToken,
+                  let activation = state.lastPowerUpActivation {
+            switch activation.type {
+            case .rowClear: sound = .rowClear
+            case .columnClear: sound = .columnClear
+            case .reorder: sound = .reorder
+            }
+            haptic = { self.haptics.powerUpActivated(activation.type) }
+        } else if state.linesCleared > previous.linesCleared {
+            let combo = state.gameMode == .beginner ? state.cascadeCount : 1
+            sound = combo >= 2 ? .cascade(level: combo) : .clear
+            haptic = { self.haptics.cleared(combo: combo) }
+        } else if state.telemetry.totalLocks > previous.telemetry.totalLocks {
+            sound = hardDrop ? .hardDrop : .lock
+            haptic = { self.haptics.pieceLocked() }
+        } else {
+            return
+        }
+        if settings.isSoundEnabled { audio.trigger(sound) }
+        if settings.isHapticsEnabled {
+            // A warning replaces the ordinary placement impact; stronger outcomes keep their feedback.
+            if (sound == .lock || sound == .hardDrop),
+               occupancyRatio(previous) < 0.70, occupancyRatio(state) >= 0.70 {
+                haptics.warning()
+            } else {
+                haptic()
+            }
+        }
     }
 
     private func occupancyRatio(_ state: GameState) -> Double {

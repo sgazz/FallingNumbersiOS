@@ -42,18 +42,18 @@ struct GameEngineTests {
     }
 
     @Test
-    func beginnerBoardSizeIs15x7InDefaultConfig() {
+    func beginnerBoardSizeIs12x7InDefaultConfig() {
         let engine = GameEngine(config: .default)
         #expect(engine.state.gameMode == .beginner)
-        #expect(engine.state.board.rows == 15)
+        #expect(engine.state.board.rows == 12)
         #expect(engine.state.board.columns == 7)
     }
 
     @Test
-    func expertBoardSizeRemainsUnchangedInDefaultConfig() {
+    func expertBoardSizeIs18x10InDefaultConfig() {
         var engine = GameEngine(config: .default)
         engine.send(.setMode(.expert))
-        #expect(engine.state.board.rows == 20)
+        #expect(engine.state.board.rows == 18)
         #expect(engine.state.board.columns == 10)
     }
 

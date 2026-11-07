@@ -60,13 +60,13 @@ struct HowToPlayView: View {
                         infoCard(title: "Game Modes") {
                             modeSummary(
                                 title: "Beginner",
-                                detail: "7 × 15 board • gradual difficulty • automatic chain reactions",
+                                detail: "7 × 12 board • gradual difficulty • automatic chain reactions",
                                 icon: "leaf.fill",
                                 color: ArcadeTheme.accentPrimary
                             )
                             modeSummary(
                                 title: "Expert",
-                                detail: "10 × 20 board • faster falling • targets from 5 to 20",
+                                detail: "10 × 18 board • faster falling • targets from 5 to 20",
                                 icon: "bolt.fill",
                                 color: ArcadeTheme.accentSecondary
                             )
@@ -122,7 +122,7 @@ struct HowToPlayView: View {
     private func bullet(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Circle()
-                .fill(ArcadeTheme.accentPrimary)
+                .fill(ArcadeTheme.controlsTint)
                 .frame(width: 6, height: 6)
                 .padding(.top, 6)
             Text(text)
@@ -151,7 +151,7 @@ struct HowToPlayView: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 11)
-                    .stroke(Color.white.opacity(0.26), lineWidth: 0.9)
+                    .stroke(Color(ArcadeTheme.tileAccent(for: value)), lineWidth: 0.9)
             )
             .shadow(color: Color(ArcadeTheme.tileColor(for: value)).opacity(0.42), radius: 6)
     }
@@ -171,7 +171,7 @@ struct HowToPlayView: View {
             Capsule()
                 .fill(
                     LinearGradient(
-                        colors: [ArcadeTheme.accentPrimary, ArcadeTheme.accentSecondary],
+                        colors: ArcadeTheme.isNeon ? [ArcadeTheme.controlsTint, Color(red: 0.68, green: 0.10, blue: 0.49)] : [ArcadeTheme.accentPrimary, ArcadeTheme.accentSecondary],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
@@ -193,7 +193,7 @@ struct HowToPlayView: View {
                 .frame(width: 34, height: 34)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(ArcadeTheme.accentPrimary)
+                        .fill(ArcadeTheme.controlsTint)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
@@ -232,7 +232,7 @@ struct HowToPlayView: View {
         HStack(spacing: 10) {
             Text(symbol)
                 .font(.system(size: 20, weight: .heavy, design: .rounded))
-                .foregroundStyle(.white)
+                .foregroundStyle(ArcadeTheme.isNeon ? Color.black : Color.white)
                 .frame(width: 34, height: 34)
                 .background(color, in: RoundedRectangle(cornerRadius: 10))
             VStack(alignment: .leading, spacing: 2) {

@@ -46,6 +46,8 @@ final class TestHighScoreStore: HighScoreStoring {
 
 final class RecordingAudioClient: AudioClient {
     private(set) var events: [SoundEvent] = []
+    private(set) var stopCount = 0
+    func stop() { stopCount += 1 }
 
     func trigger(_ event: SoundEvent) {
         events.append(event)
@@ -73,12 +75,18 @@ final class TestSettingsStore: SettingsStoring {
 final class RecordingHapticsClient: HapticsClient {
     private(set) var lockCount = 0
     private(set) var clearCount = 0
-    func moved() {}
+    private(set) var moveCount = 0
+    private(set) var perfectClearCount = 0
+    private(set) var gameOverCount = 0
+    private(set) var warningCount = 0
+    private(set) var newBestCount = 0
+    private(set) var powerUpCount = 0
+    func moved() { moveCount += 1 }
     func pieceLocked() { lockCount += 1 }
     func cleared(combo: Int) { clearCount += 1 }
-    func perfectClear() {}
-    func gameOver() {}
-    func warning() {}
-    func newBest() {}
-    func powerUpActivated(_ type: PowerUpType) {}
+    func perfectClear() { perfectClearCount += 1 }
+    func gameOver() { gameOverCount += 1 }
+    func warning() { warningCount += 1 }
+    func newBest() { newBestCount += 1 }
+    func powerUpActivated(_ type: PowerUpType) { powerUpCount += 1 }
 }
