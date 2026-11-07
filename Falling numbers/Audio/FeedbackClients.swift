@@ -3,6 +3,11 @@ import UIKit
 
 protocol AudioClient {
     func trigger(_ event: SoundEvent)
+    func stop()
+}
+
+extension AudioClient {
+    func stop() {}
 }
 
 enum SoundEvent: Equatable {

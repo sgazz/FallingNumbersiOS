@@ -6,12 +6,11 @@ nonisolated final class UIKitAudioClient: AudioClient, @unchecked Sendable {
     private let queue = DispatchQueue(label: "FallingNumbers.AudioClient")
     // Accessed only on queue, including construction and playback.
     private var playback: AudioPlayback?
+    private var isInterrupted = false
+    private var servicesAvailable = true
     private var observers: [NSObjectProtocol] = []
 
     init() {
-        queue.async { [weak self] in
-            self?.playback = AudioPlayback()
-        }
         observeAudioLifecycle()
     }
 
@@ -25,23 +24,42 @@ nonisolated final class UIKitAudioClient: AudioClient, @unchecked Sendable {
                                             object: nil, queue: nil) { [weak self] notification in
             guard let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt else { return }
             self?.queue.async { [weak self] in
-                self?.playback?.handleInterruption(type: rawType)
+                guard let self else { return }
+                switch AVAudioSession.InterruptionType(rawValue: rawType) {
+                case .began: self.isInterrupted = true
+                case .ended: self.isInterrupted = false
+                default: break
+                }
+                self.playback?.handleInterruption(type: rawType)
             }
         })
         observers.append(center.addObserver(forName: AVAudioSession.mediaServicesWereLostNotification,
                                             object: nil, queue: nil) { [weak self] _ in
-            self?.queue.async { [weak self] in self?.playback?.suspend() }
+            self?.queue.async { [weak self] in
+                self?.servicesAvailable = false
+                self?.playback?.suspend()
+                self?.playback = nil
+            }
         })
         observers.append(center.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification,
                                             object: nil, queue: nil) { [weak self] _ in
-            self?.queue.async { [weak self] in self?.playback = AudioPlayback() }
+            self?.queue.async { [weak self] in
+                self?.servicesAvailable = true
+                self?.playback = nil
+            }
         })
     }
 
     func trigger(_ event: SoundEvent) {
         queue.async { [weak self] in
-            self?.playback?.trigger(event)
+            guard let self, self.servicesAvailable, !self.isInterrupted else { return }
+            if self.playback == nil { self.playback = AudioPlayback() }
+            self.playback?.trigger(event)
         }
+    }
+
+    func stop() {
+        queue.async { [weak self] in self?.playback?.stopEffects() }
     }
 }
 
@@ -101,6 +119,10 @@ nonisolated private final class AudioPlayback {
     func suspend() {
         isInterrupted = true
         isSessionActive = false
+        stopEffects()
+    }
+
+    func stopEffects() {
         for player in players { player.stop() }
     }
 

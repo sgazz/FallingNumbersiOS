@@ -77,6 +77,8 @@ final class Falling_numbersUITests: XCTestCase {
 
     private func launchGame() -> XCUIApplication {
         let app = XCUIApplication()
+        // Navigation tests start directly in the game, independently of saved onboarding state.
+        app.launchArguments += ["-falling_numbers_onboarding_completed", "YES"]
         app.launch()
         tap(app.buttons["Play"])
         XCTAssertTrue(app.buttons["Pause game"].waitForExistence(timeout: 5))

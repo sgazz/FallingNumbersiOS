@@ -84,13 +84,13 @@ struct RenderingTests {
         var state = GameState.initial(config: .default)
         let first = Cell(value: 7)
         let second = Cell(value: 2)
-        state.board.setCell(first, at: GridPosition(row: 14, column: 0))
-        state.board.setCell(second, at: GridPosition(row: 14, column: 1))
-        let powerUp = GridPosition(row: 14, column: 2)
+        state.board.setCell(first, at: GridPosition(row: state.board.rows - 1, column: 0))
+        state.board.setCell(second, at: GridPosition(row: state.board.rows - 1, column: 1))
+        let powerUp = GridPosition(row: state.board.rows - 1, column: 2)
         state.board.setCell(Cell(kind: .reorder), at: powerUp)
         PowerUpSystem.activateReorder(state: &state, at: powerUp)
-        #expect(state.board.cell(at: GridPosition(row: 14, column: 0))?.id == second.id)
-        #expect(state.board.cell(at: GridPosition(row: 14, column: 1))?.id == first.id)
+        #expect(state.board.cell(at: GridPosition(row: state.board.rows - 1, column: 0))?.id == second.id)
+        #expect(state.board.cell(at: GridPosition(row: state.board.rows - 1, column: 1))?.id == first.id)
     }
 
     @Test(arguments: [GameMode.beginner, GameMode.expert])

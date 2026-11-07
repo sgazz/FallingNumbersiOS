@@ -264,13 +264,121 @@ struct GameViewModelTests {
 
         #expect(viewModel.state.activePiece != nil)
         #expect(viewModel.state.linesCleared == 2)
-        #expect(audio.events.filter { $0 == .lock }.count == 1)
-        #expect(audio.events.filter { $0 == .clear }.count == 1)
-        #expect(haptics.lockCount == 1)
+        #expect(!audio.events.contains(.lock))
+        #expect(!audio.events.contains(.hardDrop))
+        #expect(audio.events.filter { $0 == (mode == .beginner ? .cascade(level: 2) : .clear) }.count == 1)
+        #expect(haptics.lockCount == 0)
         #expect(haptics.clearCount == 1)
         viewModel.togglePause()
         viewModel.hardDrop()
-        #expect(haptics.lockCount == 1)
+        #expect(haptics.lockCount == 0)
         #expect(haptics.clearCount == 1)
     }
+    @Test(arguments: [TileKind.number(4), .rowClear, .columnClear, .reorder])
+    func turnPlaysOnlyItsPrimaryFeedback(kind: TileKind) {
+        let config = GameConfig(columns: 4, rows: 6, tickInterval: 60, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board.setCell(Cell(value: 6), at: GridPosition(row: 5, column: 1))
+        state.board.setCell(Cell(value: 9), at: GridPosition(row: 5, column: 3))
+        state.activePiece = FallingPiece(kind: kind, position: GridPosition(row: 0, column: 1))
+        let audio = RecordingAudioClient()
+        let haptics = RecordingHapticsClient()
+        let vm = GameScreenViewModel(engine: GameEngine(state: state, config: config),
+            highScoreStore: TestHighScoreStore(initial: 10000),
+            settingsStore: TestSettingsStore(initial: .default), haptics: haptics, audio: audio)
+        vm.startGameFromOverlay()
+        let eventCount = audio.events.count
+        vm.hardDrop()
+        let expected: SoundEvent
+        switch kind {
+        case .number: expected = .clear
+        case .rowClear: expected = .rowClear
+        case .columnClear: expected = .columnClear
+        case .reorder: expected = .reorder
+        }
+        #expect(Array(audio.events.dropFirst(eventCount)) == [expected])
+        #expect(haptics.lockCount == 0)
+        #expect(haptics.clearCount + haptics.powerUpCount == 1)
+    }
+
+    @Test(arguments: [false, true])
+    func perfectClearHonorsFeedbackSettings(disabled: Bool) {
+        let config = GameConfig(columns: 4, rows: 6, tickInterval: 60, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.board.setCell(Cell(value: 6), at: GridPosition(row: 5, column: 1))
+        state.activePiece = FallingPiece(value: 4, position: GridPosition(row: 0, column: 1))
+        let audio = RecordingAudioClient()
+        let haptics = RecordingHapticsClient()
+        let vm = GameScreenViewModel(engine: GameEngine(state: state, config: config),
+            highScoreStore: TestHighScoreStore(initial: 10000),
+            settingsStore: TestSettingsStore(initial: AppSettings(isSoundEnabled: !disabled, isHapticsEnabled: !disabled)),
+            haptics: haptics, audio: audio)
+        vm.startGameFromOverlay()
+        let count = audio.events.count
+        vm.hardDrop()
+        #expect(vm.state.didPerfectClear)
+        #expect(Array(audio.events.dropFirst(count)) == (disabled ? [] : [.perfectClear]))
+        #expect(haptics.perfectClearCount == (disabled ? 0 : 1))
+        #expect(haptics.lockCount == 0 && haptics.clearCount == 0)
+    }
+
+    @Test(arguments: [0, 10000])
+    func gameOverDoesNotPlayDropOrLockFeedback(best: Int) {
+        let config = GameConfig(columns: 4, rows: 6, tickInterval: 60, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        state.score = 10
+        state.board.setCell(Cell(value: 9), at: GridPosition(row: 1, column: 1))
+        state.activePiece = FallingPiece(value: 8, position: GridPosition(row: 0, column: 1))
+        let audio = RecordingAudioClient()
+        let haptics = RecordingHapticsClient()
+        let vm = GameScreenViewModel(engine: GameEngine(state: state, config: config),
+            highScoreStore: TestHighScoreStore(initial: best),
+            settingsStore: TestSettingsStore(initial: .default), haptics: haptics, audio: audio)
+        vm.startGameFromOverlay()
+        let count = audio.events.count
+        vm.hardDrop()
+        #expect(vm.state.isGameOver)
+        #expect(Array(audio.events.dropFirst(count)) == [.gameOver])
+        #expect(haptics.gameOverCount == (best == 0 ? 0 : 1))
+        #expect(haptics.newBestCount == (best == 0 ? 1 : 0))
+        #expect(haptics.lockCount == 0 && haptics.warningCount == 0)
+    }
+
+    @Test
+    func mutingAndBackgroundStopPlayingEffects() {
+        let audio = RecordingAudioClient()
+        let vm = GameScreenViewModel(highScoreStore: TestHighScoreStore(initial: 0),
+            settingsStore: TestSettingsStore(initial: .default), haptics: NoopHapticsClient(), audio: audio)
+        vm.setSoundEnabled(false)
+        #expect(audio.stopCount == 1)
+        vm.appDidEnterBackground()
+        #expect(audio.stopCount == 2)
+    }
+
+    @Test(arguments: [false, true])
+    func plainDropHasOneImpactOrOccupancyWarning(danger: Bool) {
+        let config = GameConfig(columns: 4, rows: 4, tickInterval: 60, baseTargetNumber: 10)
+        var state = GameState.initial(config: config)
+        if danger {
+            for row in 1..<4 {
+                for column in 0..<4 where row != 1 || column != 3 {
+                    state.board.setCell(Cell(value: 9), at: GridPosition(row: row, column: column))
+                }
+            }
+        }
+        state.activePiece = FallingPiece(value: 8, position: GridPosition(row: 0, column: 3))
+        let audio = RecordingAudioClient()
+        let haptics = RecordingHapticsClient()
+        let vm = GameScreenViewModel(engine: GameEngine(state: state, config: config),
+            highScoreStore: TestHighScoreStore(initial: 10000),
+            settingsStore: TestSettingsStore(initial: .default), haptics: haptics, audio: audio)
+        vm.startGameFromOverlay()
+        let count = audio.events.count
+        vm.hardDrop()
+        #expect(!vm.state.isGameOver)
+        #expect(Array(audio.events.dropFirst(count)) == [.hardDrop])
+        #expect(haptics.lockCount == (danger ? 0 : 1))
+        #expect(haptics.warningCount == (danger ? 1 : 0))
+    }
+
 }

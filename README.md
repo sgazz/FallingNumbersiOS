@@ -10,8 +10,8 @@ The first clear must include the newly locked tile. When several lines qualify, 
 
 | Mode | Board (columns × rows) | Behavior |
 | --- | --- | --- |
-| Beginner | 7 × 15 | Small starting layout, gradual number/target progression, automatic cascades capped at six clear passes per lock. |
-| Expert | 10 × 20 | Faster falling, numbers 1–9, random targets 5–20, fixed center spawn, one clear pass per lock. |
+| Beginner | 7 × 12 | Small starting layout, gradual number/target progression, automatic cascades capped at six clear passes per lock. |
+| Expert | 10 × 18 | Faster falling, numbers 1–9, random targets 5–20, fixed center spawn, one clear pass per lock. |
 
 The target changes on a timer; the timer runs faster at higher difficulty. Target changes wait while a tile is in its lock delay. Any settled tile in the top row ends the game after the current lock is resolved.
 
@@ -41,11 +41,11 @@ The app pauses when inactive and resumes a run that was paused by the app lifecy
 - `Falling numbers/Game/Models` — board and grid positions (`Board.swift`), tile types (`Tiles.swift`), mode/configuration (`GameConfig.swift`), events (`GameEvents.swift`), game state, and session statistics.
 - `Falling numbers/Game/Rules` — line-sum detection.
 - `Falling numbers/Game/Systems` — gravity, spawning, score/progression, starting layout, power-ups, telemetry.
-- `Falling numbers/UI/Game` — game screen, view model, HUD, controls, overlays. The compact 84-point HUD shows a target countdown ring and a tile-shaped next preview; landscape places the HUD beside the board. The board has no outer frame or rendering inset, maximizing the grid while keeping cells square.
+- `Falling numbers/UI/Game` — game screen, view model, HUD, controls, overlays. The 124-point HUD with larger labels and values shows a target countdown ring and a tile-shaped next preview; landscape places the HUD beside the board. The board has no outer frame or rendering inset, maximizing the grid while keeping cells square.
 - `Falling numbers/UI/Menu` — main menu and how-to-play screen.
 - `Falling numbers/UI/Settings` — sound, haptics, and record reset.
 - `Falling numbers/Rendering/SpriteKit` — renderer and scene (`SpriteKitRenderer.swift`), board geometry, and tile animations.
-- `Falling numbers/Audio` — feedback interfaces and UIKit haptics (`FeedbackClients.swift`), plus generated audio tones (`UIKitAudioClient.swift`). Audio preparation and playback share a background serial queue; interruptions suspend effects, and audio service resets rebuild the players.
+- `Falling numbers/Audio` — feedback interfaces and UIKit haptics (`FeedbackClients.swift`), plus generated audio tones (`UIKitAudioClient.swift`). Audio preparation and playback share a background serial queue; players are created on the first sound, interruptions suspend effects, and audio service resets rebuild players on demand. Each resolved turn uses one primary sound and haptic effect, prioritizing game over, perfect clears, power-ups, clears, and placement. Muting or leaving the app stops playing effects.
 - `Falling numbers/Persistence` — UserDefaults settings and per-mode high scores in `UserDefaultsStores.swift`.
 - `Falling numbers/Theme` — the warm paper, ink, teal, and coral palette in `ArcadeTheme.swift`.
 - `Falling numbersTests` — focused rule, engine, timing, spawning, progression, view model, rendering, and regression suites; shared doubles in `Support`.

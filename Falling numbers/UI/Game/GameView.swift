@@ -23,8 +23,6 @@ struct GameView: View {
 
     @State private var sumBannerTask: Task<Void, Never>?
     @State private var sumLearnBanner: SumLearnBanner?
-    @State private var boardOffsetY: CGFloat = 0
-    @State private var boardScale: CGFloat = 1.0
     @State private var transientBoardGlow: Double = 0
 
     private var boardDangerOpacity: Double {
@@ -185,8 +183,6 @@ struct GameView: View {
                                     .transition(.opacity.combined(with: .scale(scale: 0.93)))
                             }
                         }
-                        .scaleEffect(boardScale)
-                        .offset(y: boardOffsetY)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: isWide ? .center : .top)
                 .padding(.top, heroTopPadding)
@@ -246,9 +242,6 @@ struct GameView: View {
         }
         .onChange(of: viewModel.sumClearPulseToken) { _, _ in
             showSumClearFeedback()
-        }
-        .onChange(of: viewModel.boardShakeToken) { _, _ in
-            hardDropFeedback()
         }
         .onChange(of: viewModel.state.runID) { _, _ in
             sumBannerTask?.cancel()
@@ -310,20 +303,6 @@ struct GameView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             withAnimation(.easeIn(duration: 0.2)) {
                 targetChangeBannerText = nil
-            }
-        }
-    }
-
-    private func hardDropFeedback() {
-        guard !reduceMotion else { return }
-        withAnimation(.easeOut(duration: 0.05)) {
-            boardOffsetY = 4
-            boardScale = 0.992
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            withAnimation(.easeOut(duration: 0.1)) {
-                boardOffsetY = 0
-                boardScale = 1.0
             }
         }
     }

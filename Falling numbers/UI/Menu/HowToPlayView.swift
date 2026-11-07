@@ -60,13 +60,13 @@ struct HowToPlayView: View {
                         infoCard(title: "Game Modes") {
                             modeSummary(
                                 title: "Beginner",
-                                detail: "7 × 15 board • gradual difficulty • automatic chain reactions",
+                                detail: "7 × 12 board • gradual difficulty • automatic chain reactions",
                                 icon: "leaf.fill",
                                 color: ArcadeTheme.accentPrimary
                             )
                             modeSummary(
                                 title: "Expert",
-                                detail: "10 × 20 board • faster falling • targets from 5 to 20",
+                                detail: "10 × 18 board • faster falling • targets from 5 to 20",
                                 icon: "bolt.fill",
                                 color: ArcadeTheme.accentSecondary
                             )

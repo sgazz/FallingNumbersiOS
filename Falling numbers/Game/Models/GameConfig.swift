@@ -67,7 +67,7 @@ struct GameConfig {
 
     static let `default` = GameConfig(
         columns: 10,
-        rows: 20,
+        rows: 18,
         tickInterval: 0.65,
         expertStartingTickInterval: 0.65 * pow(0.92, 4),
         lockDelayDuration: 0.22,
@@ -77,7 +77,7 @@ struct GameConfig {
         perfectClearBonusBase: 250,
         perfectClearBonusPerLevel: 100,
         beginnerColumnsOverride: 7,
-        beginnerRowsOverride: 15
+        beginnerRowsOverride: 12
     )
 
     func columns(for mode: GameMode) -> Int {
